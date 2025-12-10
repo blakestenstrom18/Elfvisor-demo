@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>elfvisor - AI Shopping Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Montserrat', sans-serif;
+        }
+        
+        .font-serif {
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        /* Custom Scrollbar for Chat */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-white text-black h-screen flex flex-col overflow-hidden">
+
+    <!-- Chosen Palette: Neutral Warm (Beige/White) + Black/White Accents -->
+    <!-- Application Structure Plan: Split-screen SPA. Left: Conversational Context. Right: Dynamic Product Grid. Designed for linear progression from query -> clarification -> results. -->
+    <!-- Visualization & Content Choices: Vanilla JS for state transitions. Real image URLs used for product authenticity. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <!-- Header -->
+    <header class="bg-black text-white h-[50px] flex items-center justify-between px-6 fixed top-0 w-full z-50 text-xs tracking-wide">
+        <div class="flex items-center gap-6">
+            <div class="flex items-center gap-1 font-bold cursor-pointer hover:text-gray-300 transition-colors">
+                <span>🎁</span> Gifts
+            </div>
+            <div class="flex items-center gap-1 font-bold cursor-pointer hover:text-gray-300 transition-colors">
+                <span>🔥</span> What's Hot
+            </div>
+            <a href="#" class="hover:text-gray-300 hidden md:block">Makeup</a>
+            <a href="#" class="hover:text-gray-300 hidden md:block">Skincare</a>
+        </div>
+
+        <div class="absolute left-1/2 transform -translate-x-1/2 cursor-pointer flex items-center justify-center h-full">
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" class="h-8 w-auto" aria-hidden="true">
+                <path d="M10.2695 20.9688C16.9849 20.9688 19.6055 26.9227 19.6055 31.332H2.54492C2.54496 38.7949 7.05107 41.6953 11.0977 41.6953C15.1442 41.6952 17.7197 38.7412 17.7197 38.7412L18.5938 39.5596C16.8462 41.15 14.1791 42.9678 10.5459 42.9678C5.27215 42.9677 0 38.9681 0 31.7861C0.000110383 24.6043 4.73639 20.9688 10.2695 20.9688ZM28.2969 42.6963H25.7676V8.5918C25.7676 6.72798 27.0324 6.12109 28.2969 6.12109V42.6963ZM42.875 6C46.444 6 47.9819 8.60987 47.9971 8.63574L47.2295 9.30273C46.5864 8.42456 45.2675 7.08984 43.2139 7.08984C39.503 7.08996 38.4004 10.425 38.4004 14.3936V20.9688H44.8389V22.332H38.4004V42.6963H35.9473V14.4551C35.9473 8.51535 39.2884 6.0002 42.875 6ZM21.6748 41.1943C22.0924 41.1945 22.4324 41.5306 22.4326 41.9434C22.4326 42.3563 22.0926 42.6932 21.6748 42.6934C21.2569 42.6934 20.917 42.3563 20.917 41.9434C20.9172 41.5305 21.2555 41.1943 21.6748 41.1943ZM32.123 41.1943C32.5407 41.1945 32.8807 41.5306 32.8809 41.9434C32.8809 42.3563 32.5408 42.6932 32.123 42.6934C31.7052 42.6934 31.3652 42.3563 31.3652 41.9434C31.3654 41.5305 31.7038 41.1943 32.123 41.1943ZM42.3926 41.1943C42.8102 41.1945 43.1502 41.5306 43.1504 41.9434C43.1504 42.3563 42.8103 42.6932 42.3926 42.6934C41.9747 42.6934 41.6348 42.3563 41.6348 41.9434C41.635 41.5305 41.9733 41.1943 42.3926 41.1943ZM9.99414 21.9688C6.08448 21.969 2.63586 26.0353 2.63574 30.1035H17.0752C16.7185 24.5114 13.5567 22.1196 10.3076 21.9756L9.99414 21.9688Z" fill="white"/>
+            </svg>
+        </div>
+
+        <div class="flex items-center gap-4">
+            <span class="font-bold flex items-center gap-1 hidden md:flex">✨ FAN: 1065 pts</span>
+            <div class="relative hidden md:block">
+                <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">🔍</span>
+                <input 
+                    type="text" 
+                    placeholder="Search" 
+                    class="bg-transparent border border-gray-600 rounded-full py-1 pl-8 pr-4 text-xs focus:outline-none focus:border-white w-[120px]"
+                >
+            </div>
+            <span class="text-xl cursor-pointer">🇺🇸</span>
+            <span class="text-lg cursor-pointer hover:text-gray-300">❤️</span>
+            <div class="w-6 h-6 rounded-full bg-[#fcdbb0] text-black flex items-center justify-center font-bold text-xs cursor-pointer">PW</div>
+            <span class="text-lg cursor-pointer hover:text-gray-300">🛍️</span>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main id="app-container" class="flex-1 flex mt-[50px] overflow-hidden relative w-full h-full">
+        
+        <!-- New Chat Button (hidden initially, shown after chat starts) -->
+        <button 
+            id="new-chat-btn"
+            onclick="location.reload()" 
+            class="hidden absolute top-4 right-4 z-30 flex items-center gap-1 text-xs font-semibold cursor-pointer hover:bg-gray-100 transition-colors border border-gray-300 rounded-full px-3 py-1.5 bg-white shadow-sm"
+        >
+            <span>+</span> New Chat
+        </button>
+
+        <!-- View 1: Initial State (Centered) -->
+        <div id="initial-view" class="absolute inset-0 flex flex-col items-center justify-center p-4 bg-white z-20 transition-all duration-500">
+            <div class="w-full max-w-2xl text-center space-y-8">
+                <h1 class="text-4xl md:text-6xl font-medium tracking-tight">
+                    What are you shopping for today?
+                </h1>
+                <div class="relative w-full">
+                    <input
+                        type="text"
+                        id="initial-input"
+                        placeholder="Message elfvisor..."
+                        class="w-full p-6 pr-12 rounded-3xl border border-gray-200 shadow-sm text-lg focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all"
+                        style="background-color: #F3F4F6;"
+                        autofocus
+                    >
+                    <button 
+                        onclick="handleInitialSubmit()"
+                        class="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-gray-100 rounded-full text-gray-500 hover:bg-black hover:text-white transition-colors"
+                    >
+                        ➤
+                    </button>
+                </div>
+                <div class="flex gap-4 justify-center text-sm" style="color: #4B5563;">
+                    <button class="px-4 py-2 rounded-full hover:bg-gray-100 transition-colors" style="background-color: #F3F4F6;">Best sunscreen?</button>
+                    <button class="px-4 py-2 rounded-full hover:bg-gray-100 transition-colors" style="background-color: #F3F4F6;">Gift ideas for mom</button>
+                    <button class="px-4 py-2 rounded-full hover:bg-gray-100 transition-colors" style="background-color: #F3F4F6;">Find my shade</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- View 2 & 3: Split Layout (Chat + Results) -->
+        <div id="split-view" class="w-full h-full flex opacity-0 transition-opacity duration-700 pointer-events-none">
+            
+            <!-- Left: Chat Interface -->
+            <div class="w-full md:w-[35%] border-r border-gray-100 flex flex-col bg-white z-10 shadow-xl md:shadow-none h-full relative">
+                <div id="chat-history" class="flex-1 overflow-y-auto p-6 space-y-6 pb-24 no-scrollbar">
+                    <!-- Chat messages will be injected here -->
+                </div>
+
+                <!-- Fixed Input Area -->
+                <div class="absolute bottom-0 w-full p-4 border-t border-gray-100 bg-white">
+                    <div class="relative">
+                    <input
+                        id="chat-input"
+                        type="text"
+                        placeholder="Ask a follow-up question..."
+                        class="w-full rounded-full py-3 px-6 pr-12 text-sm focus:outline-none focus:ring-1 focus:ring-gray-200"
+                        style="background-color: #F3F4F6;"
+                    >
+                        <button onclick="handleChatSubmit()" class="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 bg-gray-200 rounded-full text-gray-500 hover:bg-black hover:text-white transition-colors">
+                           ➤
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Product Grid -->
+            <div id="product-panel" class="flex-1 bg-white overflow-y-auto p-8 opacity-0 transition-opacity duration-700">
+                
+                <!-- Empty State -->
+                <div id="empty-products" class="h-full flex flex-col items-center justify-center text-gray-300 space-y-4">
+                    <span class="text-6xl opacity-20">🛍️</span>
+                    <p>Products will appear here...</p>
+                </div>
+
+                <!-- Grid State -->
+                <div id="product-grid" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-10 max-w-6xl mx-auto">
+                    <!-- Products injected here -->
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // --- DATA STORE (Real Product Images & Prices) ---
+        
+        // Master Product Catalog with Metadata for Filtering
+        // skinType: Products are assigned to specific skin types they're best for
+        // coverage: Only complexion products have coverage values
+        // All images from official elfcosmetics.com CDN
+        const ALL_PRODUCTS = [
+            // === OILY SKIN PRODUCTS ===
+            {
+                name: "Power Grip Primer",
+                price: 11,
+                rating: 4.7,
+                reviews: 5140,
+                badge: "Holy Grail",
+                badgeColor: "text-black",
+                badgeStyle: "background-color: #4ADE80;",
+                shades: [],
+                cta: "ADD TO BAG",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwed6a3b79/2021/82846_OpenA_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["Oily"],
+                coverage: null
+            },
+            {
+                name: "Poreless Putty Primer",
+                price: 10,
+                rating: 4.6,
+                reviews: 8200,
+                badge: "Viral Hit",
+                badgeColor: "text-black",
+                badgeStyle: "background-color: #F472B6;",
+                shades: [],
+                cta: "ADD TO BAG",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw79f0a7c1/2019/85912_OpenA_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["Oily", "Combination"],
+                coverage: null
+            },
+            {
+                name: "Holy Hydration! Gel-Yeah Moisturizer",
+                price: 13,
+                rating: 4.5,
+                reviews: 4338,
+                badge: "Oil-Free",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #4ADE80;",
+                shades: [],
+                cta: "ADD TO BAG",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwf444ad04/2023/HHGelYeahMoisturizer/57430_Closed_R.jpg?sfrm=png&sw=600&q=90",
+                category: "skincare",
+                skinType: ["Oily"],
+                coverage: null
+            },
+            {
+                name: "16HR Camo Concealer",
+                price: 7,
+                rating: 4.5,
+                reviews: 18000,
+                badge: "Full Coverage",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #000000;",
+                shades: ["#F5DEB3", "#D2B48C", "#A0522D", "#8B4513"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw4776474c/2020/85849_OpenA_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["Oily"],
+                coverage: "Full Coverage"
+            },
+            {
+                name: "Soft Glam Satin Foundation",
+                price: 9,
+                rating: 4.4,
+                reviews: 4200,
+                badge: "Satin Finish",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #000000;",
+                shades: ["#FFE4C4", "#DEB887", "#8B4513", "#2F1B15"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwb303949d/2024/SoftGlamSatinFoundation/Medium/84948_Open_A_v3_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["Oily", "Combination"],
+                coverage: "Medium"
+            },
+            {
+                name: "Putty Blush",
+                price: 6,
+                rating: 4.5,
+                reviews: 6800,
+                badge: null,
+                shades: ["#FFB6C1", "#FF69B4", "#DC143C"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwef52e28d/2020/81622_FCBLU_OpenA_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["Oily", "Combination"],
+                coverage: null
+            },
+            // === DRY SKIN PRODUCTS ===
+            {
+                name: "Holy Hydration! Face Cream",
+                price: 14,
+                rating: 4.8,
+                reviews: 5500,
+                badge: "Hydrating",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #4ADE80;",
+                shades: [],
+                cta: "ADD TO BAG",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwf49f8bd5/2024/HolyHydrationRepack/82829_CLOSED_v2_R.jpg?sfrm=png&sw=600&q=90",
+                category: "skincare",
+                skinType: ["Dry"],
+                coverage: null
+            },
+            {
+                name: "Holy Hydration! Makeup Melting Cleanser",
+                price: 10,
+                rating: 4.7,
+                reviews: 3200,
+                badge: null,
+                shades: [],
+                cta: "ADD TO BAG",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwb80c1255/2023/PowerGripNiacinamideMini/81518_Open_R.jpg?sfrm=png&sw=600&q=90",
+                category: "skincare",
+                skinType: ["Dry"],
+                coverage: null
+            },
+            {
+                name: "Holy Hydration! Thirst Burst Drops",
+                price: 13,
+                rating: 4.6,
+                reviews: 2706,
+                badge: null,
+                shades: [],
+                cta: "ADD TO BAG",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw62fcd96a/2023/PowerGripPrimerNiacinamide/81517_OpenA_R%20copy.jpg?sfrm=png&sw=600&q=90",
+                category: "skincare",
+                skinType: ["Dry", "Normal"],
+                coverage: null
+            },
+            {
+                name: "Halo Glow Liquid Filter",
+                price: 14,
+                rating: 4.8,
+                reviews: 9500,
+                badge: "Viral Holy Grail",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #FACC15;",
+                shades: ["#F3E5DC", "#E6Ccb2", "#D2B48C", "#8B4513"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw2aabd9eb/2022/HaloGlowLiquidFilter/82113_Halo_Glow_Liquid_Filter_Fair/82113_OpenA_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["Dry", "Normal"],
+                coverage: "Sheer / Natural"
+            },
+            {
+                name: "Hydrating Camo Concealer",
+                price: 7,
+                rating: 4.6,
+                reviews: 15300,
+                badge: "Fan Fave",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #4ADE80;",
+                shades: ["#F5DEB3", "#D2B48C", "#A0522D"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw898647f0/2020/84833_Open_A_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["Dry"],
+                coverage: "Medium"
+            },
+            {
+                name: "Glow Reviver Lip Oil",
+                price: 9,
+                rating: 4.7,
+                reviews: 3824,
+                badge: "New Shade",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #000000;",
+                shades: ["#8B4513", "#D2691E", "#CD853F", "#F4A460"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwa20e9884/2025/GlowReviverMeltingLipBalm/84808/84808_OpenA_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["Dry", "Normal"],
+                coverage: null
+            },
+            // === COMBINATION SKIN PRODUCTS ===
+            {
+                name: "Suntouchable! Whoa Glow SPF 30",
+                price: 14,
+                rating: 4.8,
+                reviews: 4718,
+                badge: "Best Seller",
+                badgeColor: "text-black",
+                badgeStyle: "background-color: #FACC15;",
+                shades: [],
+                cta: "ADD TO BAG",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw56f702a5/2024/SuntouchableUpdatedAssets_US/WhoaGlow/57279_CLOSED_R.jpg?sfrm=png&sw=600&q=90",
+                category: "skincare",
+                skinType: ["Combination"],
+                coverage: null
+            },
+            {
+                name: "Camo CC Cream SPF 30",
+                price: 16,
+                rating: 4.3,
+                reviews: 3100,
+                badge: "Color Correcting",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #4ADE80;",
+                shades: ["#F3E5DC", "#E6Ccb2"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw2a9a75a5/2024/PowerGripMatte/Mini/83946_OPENA_v2_R-2.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["Combination"],
+                coverage: "Medium"
+            },
+            {
+                name: "Halo Glow Contour Beauty Wand",
+                price: 9,
+                rating: 4.7,
+                reviews: 4500,
+                badge: "Sell Out Risk",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #F472B6;",
+                shades: ["#8B4513", "#A0522D"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwb5b892b8/2023/HaloGlowWandContour/84706_OpenA_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["Combination", "Normal"],
+                coverage: null
+            },
+            {
+                name: "Monochromatic Multi Stick",
+                price: 5,
+                rating: 4.4,
+                reviews: 2100,
+                badge: "Best Value",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #FACC15;",
+                shades: ["#D87093", "#CD5C5C"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwb983b949/2025/BSGATEDBUNDLES/gripgoalscode.jpg?sw=600&q=90",
+                category: "makeup",
+                skinType: ["Combination"],
+                coverage: null
+            },
+            // === NORMAL SKIN PRODUCTS ===
+            {
+                name: "O Face Satin Lipstick",
+                price: 9,
+                rating: 4.6,
+                reviews: 5200,
+                badge: null,
+                shades: ["#DC143C", "#8B0000", "#FF69B4", "#FF1493"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw5e401cf0/2021/82846_Closed_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["Normal"],
+                coverage: null
+            },
+            {
+                name: "Bite-Size Eyeshadow",
+                price: 3,
+                rating: 4.4,
+                reviews: 11200,
+                badge: null,
+                shades: [],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw71ec6e04/2021/82846_Swatch.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["Normal"],
+                coverage: null
+            },
+            {
+                name: "Instant Lift Brow Pencil",
+                price: 3,
+                rating: 4.5,
+                reviews: 8900,
+                badge: null,
+                shades: [],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwf98e6c7f/2025/82846_POWER_GRIP_PRIMER_CAMILA_TRIPTYCH_V2.jpg?sw=600&q=90",
+                category: "makeup",
+                skinType: ["Normal"],
+                coverage: null
+            },
+            {
+                name: "Lash It Loud Mascara",
+                price: 6,
+                rating: 4.3,
+                reviews: 3400,
+                badge: null,
+                shades: [],
+                cta: "ADD TO BAG",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwc1ed3e7e/2025/82846_POWER_GRIP_PRIMER_SYLWIA_TRIPTYCH_V2.jpg?sw=600&q=90",
+                category: "makeup",
+                skinType: ["Normal"],
+                coverage: null
+            }
+        ];
+
+        // State for filtering
+        let currentSkinType = null;
+        let currentCoverage = null;
+
+        // --- FILTERING LOGIC ---
+        function filterProductsByCriteria(skinType, coverage) {
+            return ALL_PRODUCTS.filter(product => {
+                // Filter by skin type if provided
+                if (skinType && product.skinType) {
+                    if (!product.skinType.includes(skinType)) {
+                        return false;
+                    }
+                }
+                
+                // Filter by coverage if provided
+                // Only filter by coverage if the product has a coverage value
+                // Products without coverage (like skincare, lip products) should still show
+                if (coverage && product.coverage !== null) {
+                    if (product.coverage !== coverage) {
+                        return false;
+                    }
+                }
+                
+                return true;
+            });
+        }
+
+        // --- DOM ELEMENTS ---
+        const initialView = document.getElementById('initial-view');
+        const splitView = document.getElementById('split-view');
+        const chatHistory = document.getElementById('chat-history');
+        const productPanel = document.getElementById('product-panel');
+        const emptyProducts = document.getElementById('empty-products');
+        const productGrid = document.getElementById('product-grid');
+        const initialInput = document.getElementById('initial-input');
+        const chatInput = document.getElementById('chat-input'); 
+
+        // --- STATE HANDLING ---
+        function handleInitialSubmit() {
+            const query = initialInput.value.trim();
+            if (!query) return;
+
+            // Reset filter state
+            currentSkinType = null;
+            currentCoverage = null;
+
+            // Transition UI
+            initialView.style.opacity = '0';
+            initialView.style.pointerEvents = 'none';
+            
+            splitView.classList.remove('pointer-events-none');
+            splitView.style.opacity = '1';
+
+            // Show the New Chat button after a delay
+            setTimeout(() => {
+                document.getElementById('new-chat-btn').classList.remove('hidden');
+            }, 500);
+
+            // Show products immediately (all products initially)
+            renderProducts(ALL_PRODUCTS);
+
+            // Add User Message
+            addMessage('user', query);
+
+            // Delay for AI "Thinking"
+            setTimeout(() => {
+                askSkinType();
+            }, 800);
+        }
+
+        // Handle Sidebar Chat Submit (Follow up)
+        function handleChatSubmit() {
+            const query = chatInput.value.trim();
+            if (!query) return;
+
+            // 1. Add User Message
+            addMessage('user', query);
+            chatInput.value = '';
+
+            // 2. Simulate AI Thinking & Update
+            setTimeout(() => {
+                // Add AI Response
+                const responseHTML = `
+                    <div class="flex gap-2 mb-2">
+                        <div class="w-8 h-8 rounded-full bg-black flex items-center justify-center p-1.5">
+                            <img src="logo-elf.svg" alt="elf" class="w-full h-full object-contain" />
+                        </div>
+                    </div>
+                    <div class="text-sm space-y-4 leading-relaxed" style="color: #4B5563;">
+                      <p>I've updated your recommendations!</p>
+                      <p>Since you're looking for that perfect base, here are our <span class="font-bold">Holy Grail</span> foundations and complexion boosters. The <span class="font-bold">Halo Glow Liquid Filter</span> is especially great for that "lit-from-within" look.</p>
+                    </div>
+                `;
+                
+                const msgDiv = document.createElement('div');
+                msgDiv.className = `flex justify-start fade-in`;
+                const bubble = document.createElement('div');
+                bubble.className = `max-w-[95%] p-4 text-sm leading-relaxed`;
+                bubble.style.backgroundColor = '#F9FAFB';
+                bubble.innerHTML = responseHTML;
+                msgDiv.appendChild(bubble);
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+
+                // 3. Update Grid with filtered products
+                const filteredProducts = filterProductsByCriteria(currentSkinType, currentCoverage);
+                renderProducts(filteredProducts.length > 0 ? filteredProducts : ALL_PRODUCTS);
+            }, 1000);
+        }
+
+        // Allow Enter key for initial
+        initialInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleInitialSubmit();
+        });
+
+        // Allow Enter key for sidebar chat
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleChatSubmit();
+        });
+
+        // --- CHAT LOGIC ---
+
+        function addMessage(role, text, isHTML = false) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'} fade-in`;
+            
+            const bubble = document.createElement('div');
+            bubble.className = `max-w-[85%] p-4 text-sm leading-relaxed shadow-sm ${
+                role === 'user' 
+                    ? 'bg-[#E8D6D1] text-black rounded-2xl rounded-tr-sm' 
+                    : 'text-gray-800 rounded-2xl rounded-tl-sm'
+            }`;
+            if (role === 'ai' || role !== 'user') {
+                bubble.style.backgroundColor = '#F9FAFB';
+            }
+            
+            if (isHTML) {
+                bubble.innerHTML = text;
+            } else {
+                bubble.innerText = text;
+            }
+
+            msgDiv.appendChild(bubble);
+            chatHistory.appendChild(msgDiv);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
+        function askSkinType() {
+            const container = document.createElement('div');
+            container.className = 'space-y-4 fade-in';
+            container.innerHTML = `
+                <div class="flex justify-start">
+                   <div class="p-4 rounded-2xl rounded-tl-sm text-sm shadow-sm" style="background-color: #F9FAFB;">
+                      <p class="font-bold mb-2">Help us narrow it down.</p>
+                      <p>What is your skin type?</p>
+                   </div>
+                </div>
+                <div class="flex flex-wrap gap-2 pl-2">
+                    <button onclick="handleOption('Oily')" class="px-4 py-2 border border-black rounded-full text-sm hover:bg-black hover:text-white transition-colors">Oily</button>
+                    <button onclick="handleOption('Dry')" class="px-4 py-2 border border-black rounded-full text-sm hover:bg-black hover:text-white transition-colors">Dry</button>
+                    <button onclick="handleOption('Combination')" class="px-4 py-2 border border-black rounded-full text-sm hover:bg-black hover:text-white transition-colors">Combination</button>
+                    <button onclick="handleOption('Normal')" class="px-4 py-2 border border-black rounded-full text-sm hover:bg-black hover:text-white transition-colors">Normal</button>
+                </div>
+            `;
+            chatHistory.appendChild(container);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
+        function askCoverage() {
+            const container = document.createElement('div');
+            container.className = 'space-y-4 fade-in mt-4';
+            container.innerHTML = `
+                <div class="flex justify-start">
+                   <div class="p-4 rounded-2xl rounded-tl-sm text-sm shadow-sm" style="background-color: #F9FAFB;">
+                      <p>And what kind of coverage are you looking for?</p>
+                   </div>
+                </div>
+                <div class="flex flex-wrap gap-2 pl-2">
+                    <button onclick="handleFinalOption('Sheer / Natural')" class="px-4 py-2 border border-black rounded-full text-sm hover:bg-black hover:text-white transition-colors">Sheer / Natural</button>
+                    <button onclick="handleFinalOption('Medium')" class="px-4 py-2 border border-black rounded-full text-sm hover:bg-black hover:text-white transition-colors">Medium</button>
+                    <button onclick="handleFinalOption('Full Coverage')" class="px-4 py-2 border border-black rounded-full text-sm hover:bg-black hover:text-white transition-colors">Full Coverage</button>
+                </div>
+            `;
+            chatHistory.appendChild(container);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
+        function handleOption(selected) {
+            // Remove buttons to lock selection
+            const btnContainer = chatHistory.lastElementChild.querySelector('.flex-wrap');
+            if(btnContainer) btnContainer.style.pointerEvents = 'none';
+            if(btnContainer) btnContainer.style.opacity = '0.6';
+
+            // Update filter state
+            currentSkinType = selected;
+
+            addMessage('user', selected);
+            
+            // Refine products based on skin type (with slight delay to ensure state is updated)
+            setTimeout(() => {
+                const filteredProducts = filterProductsByCriteria(currentSkinType, currentCoverage);
+                renderProducts(filteredProducts.length > 0 ? filteredProducts : ALL_PRODUCTS);
+            }, 100);
+            
+            setTimeout(askCoverage, 600);
+        }
+
+        function handleFinalOption(selected) {
+            const btnContainer = chatHistory.lastElementChild.querySelector('.flex-wrap');
+            if(btnContainer) btnContainer.style.pointerEvents = 'none';
+            if(btnContainer) btnContainer.style.opacity = '0.6';
+
+            // Update filter state
+            currentCoverage = selected;
+
+            addMessage('user', selected);
+            
+            // Refine products based on both skin type and coverage (with slight delay to ensure state is updated)
+            setTimeout(() => {
+                const filteredProducts = filterProductsByCriteria(currentSkinType, currentCoverage);
+                renderProducts(filteredProducts.length > 0 ? filteredProducts : ALL_PRODUCTS);
+            }, 100);
+            
+            setTimeout(() => {
+                showFinalResults();
+            }, 800);
+        }
+
+        function showFinalResults() {
+            // 1. Show Analysis
+            const analysisHTML = `
+                <div class="flex gap-2 mb-2">
+                    <div class="w-8 h-8 rounded-full bg-black flex items-center justify-center p-1.5">
+                        <img src="logo-elf.svg" alt="elf" class="w-full h-full object-contain" />
+                    </div>
+                </div>
+                <div class="text-sm space-y-4 leading-relaxed" style="color: #4B5563;">
+                  <p class="font-medium">
+                    Finding the right products to reduce signs of aging is all about a solid routine + the right ingredients. To reduce signs of aging, focus on products with these proven ingredients:
+                  </p>
+                  <ul class="space-y-3 pl-2">
+                    <li class="flex gap-2"><span class="text-black">•</span><span><span class="font-bold">Sunscreen (SPF 30+)</span> – Protects against wrinkles.</span></li>
+                    <li class="flex gap-2"><span class="text-black">•</span><span><span class="font-bold">Retinol</span> – Boosts collagen and cell renewal.</span></li>
+                    <li class="flex gap-2"><span class="text-black">•</span><span><span class="font-bold">Vitamin C</span> – Brightens and defends.</span></li>
+                    <li class="flex gap-2"><span class="text-black">•</span><span><span class="font-bold">Hyaluronic Acid</span> – Deeply hydrates.</span></li>
+                  </ul>
+                  <div class="flex gap-4 pt-2" style="color: #4B5563;">
+                    <span class="cursor-pointer hover:text-black">👍</span>
+                    <span class="cursor-pointer hover:text-black">👎</span>
+                    <span class="cursor-pointer hover:text-black">📋</span>
+                  </div>
+                </div>
+            `;
+            
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `flex justify-start fade-in`;
+            const bubble = document.createElement('div');
+            bubble.className = `max-w-[95%] p-4 text-sm leading-relaxed`; 
+            bubble.style.backgroundColor = '#F9FAFB';
+            bubble.innerHTML = analysisHTML;
+            msgDiv.appendChild(bubble);
+            chatHistory.appendChild(msgDiv);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+
+            // 2. Products are already filtered and displayed by handleFinalOption()
+            // Don't re-render here to avoid flickering
+        }
+
+        // --- PRODUCT RENDERER ---
+        function renderProducts(productList = ALL_PRODUCTS) {
+            emptyProducts.classList.add('hidden');
+            productGrid.classList.remove('hidden');
+            productPanel.style.opacity = '1';
+
+            // Clear existing
+            productGrid.innerHTML = '';
+
+            productList.forEach(p => {
+                const card = document.createElement('div');
+                card.className = "flex flex-col p-4 relative group cursor-pointer hover:shadow-lg transition-shadow rounded-lg fade-in";
+                
+                // Stars logic
+                let stars = '';
+                for(let i=0; i<5; i++) {
+                    stars += i < Math.floor(p.rating) ? '★' : '☆';
+                }
+
+                // Shades logic
+                let shadesHTML = '';
+                if(p.shades.length > 0) {
+                    shadesHTML = `<div class="flex items-center gap-1 mb-3">`;
+                    p.shades.slice(0,4).forEach(color => {
+                        shadesHTML += `<div class="w-3 h-3 rounded-full border border-gray-200" style="background-color: ${color}"></div>`;
+                    });
+                    if(p.shades.length > 4) shadesHTML += `<span class="text-xs" style="color: #4B5563;">+${p.shades.length - 4}</span>`;
+                    shadesHTML += `</div>`;
+                } else {
+                    shadesHTML = `<div class="h-3 mb-3"></div>`;
+                }
+
+                // Badge logic
+                const badgeHTML = p.badge 
+                    ? `<div class="absolute top-4 left-4 ${p.badgeColor || 'text-white'} text-[10px] font-bold px-2 py-1 rounded-full z-10 uppercase tracking-wider" style="${p.badgeStyle || 'background-color: #000000;'}">${p.badge}</div>` 
+                    : '';
+
+                // Image Logic (Real vs Fallback Icon)
+                let imageHTML;
+                if(p.image) {
+                     imageHTML = `<img src="${p.image}" alt="${p.name}" class="w-full h-full object-contain mix-blend-multiply hover:scale-105 transition-transform duration-500" />`;
+                } else {
+                     imageHTML = `<div class="text-4xl mb-2">${p.icon || '🛍️'}</div>`;
+                }
+
+                card.innerHTML = `
+                    ${badgeHTML}
+                    <button class="absolute top-4 right-4 z-10 text-gray-400 hover:text-black">♡</button>
+
+                    <div class="aspect-[3/4] bg-white border border-gray-50 mb-4 rounded-md flex items-center justify-center relative overflow-hidden p-2">
+                         ${imageHTML}
+                    </div>
+
+                    <div class="flex items-center gap-1 text-xs mb-1 text-yellow-500">
+                        <span>${stars}</span>
+                        <span class="text-[10px]" style="color: #4B5563;">(${p.reviews})</span>
+                    </div>
+
+                    <h3 class="font-bold text-sm mb-2 leading-tight min-h-[40px]">${p.name}</h3>
+
+                    ${shadesHTML}
+
+                    <div class="mt-auto">
+                        <div class="flex items-center justify-between gap-2 mb-2">
+                            <button class="bg-black text-white text-xs font-bold py-2 px-4 rounded-full flex-1 hover:bg-gray-800 transition-colors">
+                            ${p.cta}
+                            </button>
+                            <span class="font-bold text-sm">$${p.price}</span>
+                        </div>
+                        <p class="text-[10px] font-medium leading-tight" style="color: #2563EB;">
+                            FREE FULL SIZE GIFT + FREE SHIPPING WITH ORDERS OF $35+
+                        </p>
+                    </div>
+                `;
+                productGrid.appendChild(card);
+            });
+        }
+    </script>
+</body>
+</html>

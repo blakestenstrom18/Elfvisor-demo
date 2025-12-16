@@ -33,14 +33,42 @@
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+
+        /* Loading dots animation */
+        .loading-dots::after {
+            content: '';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: ''; }
+            40% { content: '.'; }
+            60% { content: '..'; }
+            80%, 100% { content: '...'; }
+        }
+
+        /* Routine step connector line */
+        .routine-step:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            left: 24px;
+            top: 48px;
+            bottom: -24px;
+            width: 2px;
+            background: linear-gradient(to bottom, #000 0%, #e5e7eb 100%);
+        }
+
+        /* Comparison table styling */
+        .comparison-card {
+            background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%);
+        }
+
+        .savings-badge {
+            background: linear-gradient(135deg, #4ADE80 0%, #22C55E 100%);
+        }
     </style>
 </head>
 <body class="bg-white text-black h-screen flex flex-col overflow-hidden">
-
-    <!-- Chosen Palette: Neutral Warm (Beige/White) + Black/White Accents -->
-    <!-- Application Structure Plan: Split-screen SPA. Left: Conversational Context. Right: Dynamic Product Grid. Designed for linear progression from query -> clarification -> results. -->
-    <!-- Visualization & Content Choices: Vanilla JS for state transitions. Real image URLs used for product authenticity. -->
-    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
 
     <!-- Header -->
     <header class="bg-black text-white h-[50px] flex items-center justify-between px-6 fixed top-0 w-full z-50 text-xs tracking-wide">
@@ -112,10 +140,10 @@
                         ➤
                     </button>
                 </div>
-                <div class="flex gap-4 justify-center text-sm" style="color: #4B5563;">
-                    <button class="px-4 py-2 rounded-full hover:bg-gray-100 transition-colors" style="background-color: #F3F4F6;">Best sunscreen?</button>
-                    <button class="px-4 py-2 rounded-full hover:bg-gray-100 transition-colors" style="background-color: #F3F4F6;">Gift ideas for mom</button>
-                    <button class="px-4 py-2 rounded-full hover:bg-gray-100 transition-colors" style="background-color: #F3F4F6;">Find my shade</button>
+                <div class="flex flex-wrap gap-3 justify-center text-sm" style="color: #4B5563;">
+                    <button onclick="setInitialQuery('Give me a morning skincare routine for dry skin')" class="px-4 py-2 rounded-full hover:bg-gray-100 transition-colors" style="background-color: #F3F4F6;">Morning routine for dry skin</button>
+                    <button onclick="setInitialQuery('Find me an ELF dupe for Charlotte Tilbury Hollywood Flawless Filter')" class="px-4 py-2 rounded-full hover:bg-gray-100 transition-colors" style="background-color: #F3F4F6;">CT Flawless Filter dupe</button>
+                    <button onclick="setInitialQuery('Build me a full face makeup routine')" class="px-4 py-2 rounded-full hover:bg-gray-100 transition-colors" style="background-color: #F3F4F6;">Full face makeup routine</button>
                 </div>
             </div>
         </div>
@@ -146,7 +174,7 @@
                 </div>
             </div>
 
-            <!-- Right: Product Grid -->
+            <!-- Right: Dynamic Content Panel -->
             <div id="product-panel" class="flex-1 bg-white overflow-y-auto p-8 opacity-0 transition-opacity duration-700">
                 
                 <!-- Empty State -->
@@ -155,25 +183,183 @@
                     <p>Products will appear here...</p>
                 </div>
 
-                <!-- Grid State -->
+                <!-- Grid State (default product view) -->
                 <div id="product-grid" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-10 max-w-6xl mx-auto">
                     <!-- Products injected here -->
+                </div>
+
+                <!-- Routine View -->
+                <div id="routine-view" class="hidden max-w-3xl mx-auto">
+                    <!-- Routine steps injected here -->
+                </div>
+
+                <!-- Comparison View -->
+                <div id="comparison-view" class="hidden max-w-4xl mx-auto">
+                    <!-- Comparison table injected here -->
                 </div>
 
             </div>
         </div>
     </main>
 
+    <!-- Load API config (gitignored - copy config.example.js to config.js) -->
+    <script src="config.js"></script>
+    
     <script>
-        // --- DATA STORE (Real Product Images & Prices) ---
-        
-        // Master Product Catalog with Metadata for Filtering
-        // skinType: Products are assigned to specific skin types they're best for
-        // coverage: Only complexion products have coverage values
-        // All images from official elfcosmetics.com CDN
+        // ===========================================
+        // CONFIGURATION
+        // ===========================================
+        // API key is loaded from config.js (gitignored)
+        // Copy config.example.js to config.js and add your key
+        const OPENAI_API_KEY = (typeof CONFIG !== 'undefined') ? CONFIG.OPENAI_API_KEY : 'YOUR_OPENAI_API_KEY_HERE';
+
+        // ===========================================
+        // PRODUCT CATALOG - Enhanced Schema
+        // ===========================================
         const ALL_PRODUCTS = [
-            // === OILY SKIN PRODUCTS ===
+            // === SKINCARE - CLEANSERS ===
             {
+                id: "holy-hydration-cleanser",
+                name: "Holy Hydration! Makeup Melting Cleanser",
+                price: 10,
+                rating: 4.7,
+                reviews: 3200,
+                badge: null,
+                badgeColor: null,
+                badgeStyle: null,
+                shades: [],
+                cta: "ADD TO BAG",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwb80c1255/2023/PowerGripNiacinamideMini/81518_Open_R.jpg?sfrm=png&sw=600&q=90",
+                category: "skincare",
+                skinType: ["Dry", "Normal", "Combination"],
+                coverage: null,
+                // NEW FIELDS
+                productType: "cleanser",
+                routineStep: "both",
+                applicationOrder: 1,
+                usage: "Massage onto dry skin to melt away makeup, then rinse with warm water. Can also be used on damp skin as a gentle cleanser.",
+                benefits: ["makeup removing", "hydrating", "gentle", "non-stripping"],
+                keyIngredients: ["squalane", "vitamin E", "hyaluronic acid"],
+                concerns: ["dryness", "sensitive skin", "makeup removal"],
+                similarTo: [
+                    { brand: "Clinique", product: "Take The Day Off Cleansing Balm", price: 36 },
+                    { brand: "Farmacy", product: "Green Clean Makeup Meltaway", price: 36 }
+                ]
+            },
+            // === SKINCARE - SERUMS ===
+            {
+                id: "holy-hydration-serum",
+                name: "Holy Hydration! Thirst Burst Drops",
+                price: 13,
+                rating: 4.6,
+                reviews: 2706,
+                badge: "Hydrating",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #4ADE80;",
+                shades: [],
+                cta: "ADD TO BAG",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw62fcd96a/2023/PowerGripPrimerNiacinamide/81517_OpenA_R%20copy.jpg?sfrm=png&sw=600&q=90",
+                category: "skincare",
+                skinType: ["Dry", "Normal", "Combination"],
+                coverage: null,
+                productType: "serum",
+                routineStep: "both",
+                applicationOrder: 2,
+                usage: "Apply 2-3 drops to clean skin before moisturizer. Pat gently until absorbed.",
+                benefits: ["intense hydration", "plumping", "dewy finish", "lightweight"],
+                keyIngredients: ["hyaluronic acid", "squalane", "niacinamide"],
+                concerns: ["dehydration", "dullness", "fine lines"],
+                similarTo: [
+                    { brand: "The Ordinary", product: "Hyaluronic Acid 2% + B5", price: 9 },
+                    { brand: "Drunk Elephant", product: "B-Hydra Intensive Hydration Serum", price: 48 }
+                ]
+            },
+            // === SKINCARE - MOISTURIZERS ===
+            {
+                id: "holy-hydration-face-cream",
+                name: "Holy Hydration! Face Cream",
+                price: 14,
+                rating: 4.8,
+                reviews: 5500,
+                badge: "Best Seller",
+                badgeColor: "text-black",
+                badgeStyle: "background-color: #FACC15;",
+                shades: [],
+                cta: "ADD TO BAG",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwf49f8bd5/2024/HolyHydrationRepack/82829_CLOSED_v2_R.jpg?sfrm=png&sw=600&q=90",
+                category: "skincare",
+                skinType: ["Dry", "Normal"],
+                coverage: null,
+                productType: "moisturizer",
+                routineStep: "both",
+                applicationOrder: 3,
+                usage: "Apply a generous amount to face and neck after serum. Best when skin is slightly damp.",
+                benefits: ["deep hydration", "barrier repair", "non-greasy", "long-lasting moisture"],
+                keyIngredients: ["hyaluronic acid", "squalane", "niacinamide", "peptides"],
+                concerns: ["dry skin", "dehydration", "flakiness"],
+                similarTo: [
+                    { brand: "CeraVe", product: "Moisturizing Cream", price: 19 },
+                    { brand: "Tatcha", product: "The Dewy Skin Cream", price: 69 }
+                ]
+            },
+            {
+                id: "gel-yeah-moisturizer",
+                name: "Holy Hydration! Gel-Yeah Moisturizer",
+                price: 13,
+                rating: 4.5,
+                reviews: 4338,
+                badge: "Oil-Free",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #4ADE80;",
+                shades: [],
+                cta: "ADD TO BAG",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwf444ad04/2023/HHGelYeahMoisturizer/57430_Closed_R.jpg?sfrm=png&sw=600&q=90",
+                category: "skincare",
+                skinType: ["Oily", "Combination"],
+                coverage: null,
+                productType: "moisturizer",
+                routineStep: "both",
+                applicationOrder: 3,
+                usage: "Apply to clean skin morning and night. Perfect under makeup for oily skin types.",
+                benefits: ["oil-free", "lightweight", "mattifying", "hydrating without heaviness"],
+                keyIngredients: ["hyaluronic acid", "aloe vera", "niacinamide"],
+                concerns: ["oily skin", "shine control", "acne-prone skin"],
+                similarTo: [
+                    { brand: "Neutrogena", product: "Hydro Boost Water Gel", price: 20 },
+                    { brand: "Clinique", product: "Dramatically Different Moisturizing Gel", price: 34 }
+                ]
+            },
+            // === SKINCARE - SUNSCREEN ===
+            {
+                id: "whoa-glow-spf",
+                name: "Suntouchable! Whoa Glow SPF 30",
+                price: 14,
+                rating: 4.8,
+                reviews: 4718,
+                badge: "Best Seller",
+                badgeColor: "text-black",
+                badgeStyle: "background-color: #FACC15;",
+                shades: [],
+                cta: "ADD TO BAG",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw56f702a5/2024/SuntouchableUpdatedAssets_US/WhoaGlow/57279_CLOSED_R.jpg?sfrm=png&sw=600&q=90",
+                category: "skincare",
+                skinType: ["All", "Combination", "Normal", "Dry", "Oily"],
+                coverage: null,
+                productType: "sunscreen",
+                routineStep: "morning",
+                applicationOrder: 4,
+                usage: "Apply as the last step of your morning skincare routine. Reapply every 2 hours when exposed to sun.",
+                benefits: ["SPF 30 protection", "glowy finish", "lightweight", "no white cast"],
+                keyIngredients: ["zinc oxide", "hyaluronic acid", "squalane"],
+                concerns: ["sun protection", "aging prevention", "hyperpigmentation"],
+                similarTo: [
+                    { brand: "Supergoop", product: "Glowscreen SPF 40", price: 38 },
+                    { brand: "Drunk Elephant", product: "Umbra Sheer Physical Daily Defense", price: 34 }
+                ]
+            },
+            // === MAKEUP - PRIMERS ===
+            {
+                id: "power-grip-primer",
                 name: "Power Grip Primer",
                 price: 11,
                 rating: 4.7,
@@ -185,10 +371,22 @@
                 cta: "ADD TO BAG",
                 image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwed6a3b79/2021/82846_OpenA_R.jpg?sfrm=png&sw=600&q=90",
                 category: "makeup",
-                skinType: ["Oily"],
-                coverage: null
+                skinType: ["Oily", "Combination", "Normal"],
+                coverage: null,
+                productType: "primer",
+                routineStep: "morning",
+                applicationOrder: 5,
+                usage: "Apply a thin layer to clean, moisturized skin. Wait 30 seconds before applying foundation for best grip.",
+                benefits: ["long-wear", "pore-minimizing", "gripping formula", "hydrating"],
+                keyIngredients: ["hyaluronic acid", "niacinamide", "squalane"],
+                concerns: ["makeup longevity", "large pores", "oily skin"],
+                similarTo: [
+                    { brand: "Milk Makeup", product: "Hydro Grip Primer", price: 36 },
+                    { brand: "Tatcha", product: "Liquid Silk Canvas", price: 52 }
+                ]
             },
             {
+                id: "poreless-putty-primer",
                 name: "Poreless Putty Primer",
                 price: 10,
                 rating: 4.6,
@@ -201,109 +399,22 @@
                 image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw79f0a7c1/2019/85912_OpenA_R.jpg?sfrm=png&sw=600&q=90",
                 category: "makeup",
                 skinType: ["Oily", "Combination"],
-                coverage: null
+                coverage: null,
+                productType: "primer",
+                routineStep: "morning",
+                applicationOrder: 5,
+                usage: "Warm between fingers and press into skin, focusing on pores and texture. Works best on oily areas.",
+                benefits: ["pore-blurring", "mattifying", "smooth finish", "long-wear"],
+                keyIngredients: ["squalane", "vitamin E"],
+                concerns: ["large pores", "oily skin", "texture"],
+                similarTo: [
+                    { brand: "Tatcha", product: "The Silk Canvas Primer", price: 52 },
+                    { brand: "Benefit", product: "POREfessional Primer", price: 35 }
+                ]
             },
+            // === MAKEUP - FOUNDATIONS & SKIN TINTS ===
             {
-                name: "Holy Hydration! Gel-Yeah Moisturizer",
-                price: 13,
-                rating: 4.5,
-                reviews: 4338,
-                badge: "Oil-Free",
-                badgeColor: "text-white",
-                badgeStyle: "background-color: #4ADE80;",
-                shades: [],
-                cta: "ADD TO BAG",
-                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwf444ad04/2023/HHGelYeahMoisturizer/57430_Closed_R.jpg?sfrm=png&sw=600&q=90",
-                category: "skincare",
-                skinType: ["Oily"],
-                coverage: null
-            },
-            {
-                name: "16HR Camo Concealer",
-                price: 7,
-                rating: 4.5,
-                reviews: 18000,
-                badge: "Full Coverage",
-                badgeColor: "text-white",
-                badgeStyle: "background-color: #000000;",
-                shades: ["#F5DEB3", "#D2B48C", "#A0522D", "#8B4513"],
-                cta: "SELECT SHADE",
-                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw4776474c/2020/85849_OpenA_R.jpg?sfrm=png&sw=600&q=90",
-                category: "makeup",
-                skinType: ["Oily"],
-                coverage: "Full Coverage"
-            },
-            {
-                name: "Soft Glam Satin Foundation",
-                price: 9,
-                rating: 4.4,
-                reviews: 4200,
-                badge: "Satin Finish",
-                badgeColor: "text-white",
-                badgeStyle: "background-color: #000000;",
-                shades: ["#FFE4C4", "#DEB887", "#8B4513", "#2F1B15"],
-                cta: "SELECT SHADE",
-                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwb303949d/2024/SoftGlamSatinFoundation/Medium/84948_Open_A_v3_R.jpg?sfrm=png&sw=600&q=90",
-                category: "makeup",
-                skinType: ["Oily", "Combination"],
-                coverage: "Medium"
-            },
-            {
-                name: "Putty Blush",
-                price: 6,
-                rating: 4.5,
-                reviews: 6800,
-                badge: null,
-                shades: ["#FFB6C1", "#FF69B4", "#DC143C"],
-                cta: "SELECT SHADE",
-                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwef52e28d/2020/81622_FCBLU_OpenA_R.jpg?sfrm=png&sw=600&q=90",
-                category: "makeup",
-                skinType: ["Oily", "Combination"],
-                coverage: null
-            },
-            // === DRY SKIN PRODUCTS ===
-            {
-                name: "Holy Hydration! Face Cream",
-                price: 14,
-                rating: 4.8,
-                reviews: 5500,
-                badge: "Hydrating",
-                badgeColor: "text-white",
-                badgeStyle: "background-color: #4ADE80;",
-                shades: [],
-                cta: "ADD TO BAG",
-                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwf49f8bd5/2024/HolyHydrationRepack/82829_CLOSED_v2_R.jpg?sfrm=png&sw=600&q=90",
-                category: "skincare",
-                skinType: ["Dry"],
-                coverage: null
-            },
-            {
-                name: "Holy Hydration! Makeup Melting Cleanser",
-                price: 10,
-                rating: 4.7,
-                reviews: 3200,
-                badge: null,
-                shades: [],
-                cta: "ADD TO BAG",
-                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwb80c1255/2023/PowerGripNiacinamideMini/81518_Open_R.jpg?sfrm=png&sw=600&q=90",
-                category: "skincare",
-                skinType: ["Dry"],
-                coverage: null
-            },
-            {
-                name: "Holy Hydration! Thirst Burst Drops",
-                price: 13,
-                rating: 4.6,
-                reviews: 2706,
-                badge: null,
-                shades: [],
-                cta: "ADD TO BAG",
-                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw62fcd96a/2023/PowerGripPrimerNiacinamide/81517_OpenA_R%20copy.jpg?sfrm=png&sw=600&q=90",
-                category: "skincare",
-                skinType: ["Dry", "Normal"],
-                coverage: null
-            },
-            {
+                id: "halo-glow-liquid-filter",
                 name: "Halo Glow Liquid Filter",
                 price: 14,
                 rating: 4.8,
@@ -315,10 +426,104 @@
                 cta: "SELECT SHADE",
                 image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw2aabd9eb/2022/HaloGlowLiquidFilter/82113_Halo_Glow_Liquid_Filter_Fair/82113_OpenA_R.jpg?sfrm=png&sw=600&q=90",
                 category: "makeup",
-                skinType: ["Dry", "Normal"],
-                coverage: "Sheer / Natural"
+                skinType: ["Dry", "Normal", "Combination"],
+                coverage: "Sheer / Natural",
+                productType: "skin-tint",
+                routineStep: "morning",
+                applicationOrder: 6,
+                usage: "Apply with fingers or a damp sponge for a natural, lit-from-within glow. Can be worn alone or mixed with foundation.",
+                benefits: ["radiant finish", "natural coverage", "hydrating", "blurring"],
+                keyIngredients: ["squalane", "hyaluronic acid"],
+                concerns: ["dullness", "uneven skin tone", "dry skin"],
+                similarTo: [
+                    { brand: "Charlotte Tilbury", product: "Hollywood Flawless Filter", price: 49 },
+                    { brand: "Armani", product: "Luminous Silk Primer", price: 45 }
+                ]
             },
             {
+                id: "soft-glam-foundation",
+                name: "Soft Glam Satin Foundation",
+                price: 9,
+                rating: 4.4,
+                reviews: 4200,
+                badge: "Satin Finish",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #000000;",
+                shades: ["#FFE4C4", "#DEB887", "#8B4513", "#2F1B15"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwb303949d/2024/SoftGlamSatinFoundation/Medium/84948_Open_A_v3_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["Oily", "Combination", "Normal"],
+                coverage: "Medium",
+                productType: "foundation",
+                routineStep: "morning",
+                applicationOrder: 6,
+                usage: "Apply with a brush or sponge, building coverage where needed. Set with powder for longer wear.",
+                benefits: ["buildable coverage", "satin finish", "lightweight", "natural look"],
+                keyIngredients: ["hyaluronic acid", "squalane"],
+                concerns: ["uneven skin tone", "redness", "blemishes"],
+                similarTo: [
+                    { brand: "Maybelline", product: "Fit Me Dewy + Smooth", price: 10 },
+                    { brand: "NARS", product: "Sheer Glow Foundation", price: 49 }
+                ]
+            },
+            {
+                id: "camo-cc-cream",
+                name: "Camo CC Cream SPF 30",
+                price: 16,
+                rating: 4.3,
+                reviews: 3100,
+                badge: "SPF 30",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #4ADE80;",
+                shades: ["#F3E5DC", "#E6Ccb2", "#D2B48C", "#A0522D"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw2a9a75a5/2024/PowerGripMatte/Mini/83946_OPENA_v2_R-2.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["Combination", "Normal"],
+                coverage: "Medium",
+                productType: "cc-cream",
+                routineStep: "morning",
+                applicationOrder: 6,
+                usage: "Apply with fingers or brush for a skin-perfecting finish. No need for separate SPF!",
+                benefits: ["color correcting", "SPF protection", "hydrating", "buildable"],
+                keyIngredients: ["niacinamide", "hyaluronic acid", "zinc oxide"],
+                concerns: ["uneven skin tone", "redness", "sun protection"],
+                similarTo: [
+                    { brand: "IT Cosmetics", product: "CC+ Cream SPF 50", price: 47 },
+                    { brand: "Erborian", product: "CC Cream", price: 44 }
+                ]
+            },
+            // === MAKEUP - CONCEALERS ===
+            {
+                id: "16hr-camo-concealer",
+                name: "16HR Camo Concealer",
+                price: 7,
+                rating: 4.5,
+                reviews: 18000,
+                badge: "Full Coverage",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #000000;",
+                shades: ["#F5DEB3", "#D2B48C", "#A0522D", "#8B4513"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw4776474c/2020/85849_OpenA_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["Oily", "Combination"],
+                coverage: "Full Coverage",
+                productType: "concealer",
+                routineStep: "morning",
+                applicationOrder: 7,
+                usage: "Apply to under-eyes, blemishes, and areas needing coverage. Blend quickly with sponge or brush.",
+                benefits: ["full coverage", "long-wear", "matte finish", "crease-proof"],
+                keyIngredients: ["kaolin clay", "vitamin E"],
+                concerns: ["dark circles", "blemishes", "redness", "oily skin"],
+                similarTo: [
+                    { brand: "Tarte", product: "Shape Tape Concealer", price: 30 },
+                    { brand: "Too Faced", product: "Born This Way Super Coverage Concealer", price: 33 }
+                ]
+            },
+            {
+                id: "hydrating-camo-concealer",
                 name: "Hydrating Camo Concealer",
                 price: 7,
                 rating: 4.6,
@@ -330,56 +535,23 @@
                 cta: "SELECT SHADE",
                 image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw898647f0/2020/84833_Open_A_R.jpg?sfrm=png&sw=600&q=90",
                 category: "makeup",
-                skinType: ["Dry"],
-                coverage: "Medium"
-            },
-            {
-                name: "Glow Reviver Lip Oil",
-                price: 9,
-                rating: 4.7,
-                reviews: 3824,
-                badge: "New Shade",
-                badgeColor: "text-white",
-                badgeStyle: "background-color: #000000;",
-                shades: ["#8B4513", "#D2691E", "#CD853F", "#F4A460"],
-                cta: "SELECT SHADE",
-                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwa20e9884/2025/GlowReviverMeltingLipBalm/84808/84808_OpenA_R.jpg?sfrm=png&sw=600&q=90",
-                category: "makeup",
                 skinType: ["Dry", "Normal"],
-                coverage: null
+                coverage: "Medium",
+                productType: "concealer",
+                routineStep: "morning",
+                applicationOrder: 7,
+                usage: "Apply to under-eyes and blend with finger or sponge. Layer for more coverage without caking.",
+                benefits: ["hydrating", "brightening", "crease-resistant", "natural finish"],
+                keyIngredients: ["hyaluronic acid", "rose hip oil", "vitamin E"],
+                concerns: ["dark circles", "dry under-eyes", "fine lines"],
+                similarTo: [
+                    { brand: "NARS", product: "Radiant Creamy Concealer", price: 31 },
+                    { brand: "Maybelline", product: "Instant Age Rewind Concealer", price: 11 }
+                ]
             },
-            // === COMBINATION SKIN PRODUCTS ===
+            // === MAKEUP - CONTOUR & BRONZER ===
             {
-                name: "Suntouchable! Whoa Glow SPF 30",
-                price: 14,
-                rating: 4.8,
-                reviews: 4718,
-                badge: "Best Seller",
-                badgeColor: "text-black",
-                badgeStyle: "background-color: #FACC15;",
-                shades: [],
-                cta: "ADD TO BAG",
-                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw56f702a5/2024/SuntouchableUpdatedAssets_US/WhoaGlow/57279_CLOSED_R.jpg?sfrm=png&sw=600&q=90",
-                category: "skincare",
-                skinType: ["Combination"],
-                coverage: null
-            },
-            {
-                name: "Camo CC Cream SPF 30",
-                price: 16,
-                rating: 4.3,
-                reviews: 3100,
-                badge: "Color Correcting",
-                badgeColor: "text-white",
-                badgeStyle: "background-color: #4ADE80;",
-                shades: ["#F3E5DC", "#E6Ccb2"],
-                cta: "SELECT SHADE",
-                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw2a9a75a5/2024/PowerGripMatte/Mini/83946_OPENA_v2_R-2.jpg?sfrm=png&sw=600&q=90",
-                category: "makeup",
-                skinType: ["Combination"],
-                coverage: "Medium"
-            },
-            {
+                id: "halo-glow-contour-wand",
                 name: "Halo Glow Contour Beauty Wand",
                 price: 9,
                 rating: 4.7,
@@ -391,10 +563,50 @@
                 cta: "SELECT SHADE",
                 image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwb5b892b8/2023/HaloGlowWandContour/84706_OpenA_R.jpg?sfrm=png&sw=600&q=90",
                 category: "makeup",
-                skinType: ["Combination", "Normal"],
-                coverage: null
+                skinType: ["All", "Combination", "Normal", "Dry", "Oily"],
+                coverage: null,
+                productType: "contour",
+                routineStep: "morning",
+                applicationOrder: 8,
+                usage: "Apply to hollows of cheeks, jawline, and temples. Blend with sponge or brush for a natural shadow.",
+                benefits: ["buildable", "blendable", "natural contour", "cushion applicator"],
+                keyIngredients: ["squalane", "vitamin E"],
+                concerns: ["face sculpting", "definition"],
+                similarTo: [
+                    { brand: "Charlotte Tilbury", product: "Hollywood Contour Wand", price: 40 },
+                    { brand: "Rare Beauty", product: "Warm Wishes Bronzer Stick", price: 26 }
+                ]
+            },
+            // === MAKEUP - BLUSH ===
+            {
+                id: "putty-blush",
+                name: "Putty Blush",
+                price: 6,
+                rating: 4.5,
+                reviews: 6800,
+                badge: null,
+                badgeColor: null,
+                badgeStyle: null,
+                shades: ["#FFB6C1", "#FF69B4", "#DC143C"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwef52e28d/2020/81622_FCBLU_OpenA_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["Oily", "Combination", "Normal"],
+                coverage: null,
+                productType: "blush",
+                routineStep: "morning",
+                applicationOrder: 9,
+                usage: "Warm between fingers and tap onto cheeks. Build for more intensity. Works on eyes and lips too!",
+                benefits: ["natural flush", "buildable", "multi-use", "long-lasting"],
+                keyIngredients: ["squalane", "vitamin E"],
+                concerns: ["adding color", "healthy glow"],
+                similarTo: [
+                    { brand: "Glossier", product: "Cloud Paint", price: 20 },
+                    { brand: "Rare Beauty", product: "Soft Pinch Liquid Blush", price: 23 }
+                ]
             },
             {
+                id: "monochromatic-multi-stick",
                 name: "Monochromatic Multi Stick",
                 price: 5,
                 rating: 4.4,
@@ -402,189 +614,378 @@
                 badge: "Best Value",
                 badgeColor: "text-white",
                 badgeStyle: "background-color: #FACC15;",
-                shades: ["#D87093", "#CD5C5C"],
+                shades: ["#D87093", "#CD5C5C", "#E9967A"],
                 cta: "SELECT SHADE",
                 image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwb983b949/2025/BSGATEDBUNDLES/gripgoalscode.jpg?sw=600&q=90",
                 category: "makeup",
-                skinType: ["Combination"],
-                coverage: null
+                skinType: ["All", "Combination", "Normal", "Dry", "Oily"],
+                coverage: null,
+                productType: "blush",
+                routineStep: "morning",
+                applicationOrder: 9,
+                usage: "Apply directly to cheeks, lips, and eyes. Blend with fingers for a cohesive, effortless look.",
+                benefits: ["multi-use", "portable", "buildable", "creamy formula"],
+                keyIngredients: ["vitamin E", "jojoba oil"],
+                concerns: ["easy application", "travel-friendly", "cohesive look"],
+                similarTo: [
+                    { brand: "ILIA", product: "Multi-Stick", price: 34 },
+                    { brand: "Nudestix", product: "Nudies Matte Blush", price: 30 }
+                ]
             },
-            // === NORMAL SKIN PRODUCTS ===
+            // === MAKEUP - EYES ===
             {
-                name: "O Face Satin Lipstick",
-                price: 9,
-                rating: 4.6,
-                reviews: 5200,
-                badge: null,
-                shades: ["#DC143C", "#8B0000", "#FF69B4", "#FF1493"],
-                cta: "SELECT SHADE",
-                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw5e401cf0/2021/82846_Closed_R.jpg?sfrm=png&sw=600&q=90",
-                category: "makeup",
-                skinType: ["Normal"],
-                coverage: null
-            },
-            {
+                id: "bite-size-eyeshadow",
                 name: "Bite-Size Eyeshadow",
                 price: 3,
                 rating: 4.4,
                 reviews: 11200,
                 badge: null,
+                badgeColor: null,
+                badgeStyle: null,
                 shades: [],
                 cta: "SELECT SHADE",
                 image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw71ec6e04/2021/82846_Swatch.jpg?sfrm=png&sw=600&q=90",
                 category: "makeup",
-                skinType: ["Normal"],
-                coverage: null
+                skinType: ["All", "Normal"],
+                coverage: null,
+                productType: "eyeshadow",
+                routineStep: "morning",
+                applicationOrder: 10,
+                usage: "Apply with brush or finger. Use lighter shades on lid and darker shades in crease for dimension.",
+                benefits: ["pigmented", "blendable", "curated palettes", "travel-friendly"],
+                keyIngredients: ["vitamin E"],
+                concerns: ["eye makeup", "easy looks"],
+                similarTo: [
+                    { brand: "ColourPop", product: "Pressed Powder Shadow", price: 5 },
+                    { brand: "Urban Decay", product: "Naked Petite Heat", price: 29 }
+                ]
             },
             {
+                id: "instant-lift-brow",
                 name: "Instant Lift Brow Pencil",
                 price: 3,
                 rating: 4.5,
                 reviews: 8900,
                 badge: null,
+                badgeColor: null,
+                badgeStyle: null,
                 shades: [],
                 cta: "SELECT SHADE",
                 image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwf98e6c7f/2025/82846_POWER_GRIP_PRIMER_CAMILA_TRIPTYCH_V2.jpg?sw=600&q=90",
                 category: "makeup",
-                skinType: ["Normal"],
-                coverage: null
+                skinType: ["All", "Normal"],
+                coverage: null,
+                productType: "brow-pencil",
+                routineStep: "morning",
+                applicationOrder: 11,
+                usage: "Use short, hair-like strokes to fill in sparse areas. Brush through with spoolie for natural finish.",
+                benefits: ["natural finish", "easy to use", "dual-ended", "long-lasting"],
+                keyIngredients: ["vitamin E", "castor oil"],
+                concerns: ["sparse brows", "definition"],
+                similarTo: [
+                    { brand: "Anastasia Beverly Hills", product: "Brow Wiz", price: 25 },
+                    { brand: "NYX", product: "Micro Brow Pencil", price: 11 }
+                ]
             },
             {
+                id: "lash-it-loud-mascara",
                 name: "Lash It Loud Mascara",
                 price: 6,
                 rating: 4.3,
                 reviews: 3400,
                 badge: null,
+                badgeColor: null,
+                badgeStyle: null,
                 shades: [],
                 cta: "ADD TO BAG",
                 image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwc1ed3e7e/2025/82846_POWER_GRIP_PRIMER_SYLWIA_TRIPTYCH_V2.jpg?sw=600&q=90",
                 category: "makeup",
-                skinType: ["Normal"],
-                coverage: null
+                skinType: ["All", "Normal"],
+                coverage: null,
+                productType: "mascara",
+                routineStep: "morning",
+                applicationOrder: 12,
+                usage: "Wiggle wand at base of lashes and pull through to tips. Layer for more volume and length.",
+                benefits: ["volumizing", "lengthening", "buildable", "no clumping"],
+                keyIngredients: ["vitamin E", "castor oil"],
+                concerns: ["short lashes", "volume", "length"],
+                similarTo: [
+                    { brand: "Maybelline", product: "Lash Sensational", price: 10 },
+                    { brand: "Benefit", product: "They're Real! Mascara", price: 28 }
+                ]
+            },
+            // === MAKEUP - LIPS ===
+            {
+                id: "glow-reviver-lip-oil",
+                name: "Glow Reviver Lip Oil",
+                price: 9,
+                rating: 4.7,
+                reviews: 3824,
+                badge: "Trending",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #F472B6;",
+                shades: ["#8B4513", "#D2691E", "#CD853F", "#F4A460"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwa20e9884/2025/GlowReviverMeltingLipBalm/84808/84808_OpenA_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["All", "Dry", "Normal"],
+                coverage: null,
+                productType: "lip-oil",
+                routineStep: "both",
+                applicationOrder: 13,
+                usage: "Apply directly to lips for a glossy, hydrating finish. Reapply as needed throughout the day.",
+                benefits: ["hydrating", "glossy finish", "nourishing", "non-sticky"],
+                keyIngredients: ["jojoba oil", "vitamin E", "apricot oil"],
+                concerns: ["dry lips", "lip hydration", "glossy look"],
+                similarTo: [
+                    { brand: "Dior", product: "Lip Glow Oil", price: 40 },
+                    { brand: "Kosas", product: "Wet Lip Oil Gloss", price: 26 }
+                ]
+            },
+            {
+                id: "o-face-satin-lipstick",
+                name: "O Face Satin Lipstick",
+                price: 9,
+                rating: 4.6,
+                reviews: 5200,
+                badge: null,
+                badgeColor: null,
+                badgeStyle: null,
+                shades: ["#DC143C", "#8B0000", "#FF69B4", "#FF1493"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw5e401cf0/2021/82846_Closed_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["All", "Normal"],
+                coverage: null,
+                productType: "lipstick",
+                routineStep: "morning",
+                applicationOrder: 13,
+                usage: "Apply directly from the bullet or with a lip brush for precision. Blot and reapply for longer wear.",
+                benefits: ["satin finish", "pigmented", "comfortable wear", "hydrating"],
+                keyIngredients: ["vitamin E", "shea butter", "jojoba oil"],
+                concerns: ["lip color", "comfortable formula"],
+                similarTo: [
+                    { brand: "MAC", product: "Satin Lipstick", price: 23 },
+                    { brand: "Charlotte Tilbury", product: "Matte Revolution Lipstick", price: 35 }
+                ]
             }
         ];
 
-        // State for filtering
+        // ===========================================
+        // SYSTEM PROMPTS FOR OPENAI
+        // ===========================================
+        const ROUTINE_SYSTEM_PROMPT = `You are an expert beauty advisor for e.l.f. Cosmetics. Your job is to create personalized skincare and makeup routines using ONLY products from the provided catalog.
+
+IMPORTANT RULES:
+1. ONLY recommend products that exist in the catalog (match by id)
+2. Order products by their applicationOrder field
+3. Provide specific, helpful usage instructions
+4. Be encouraging and friendly in tone
+5. Always respond with valid JSON
+
+When creating a routine, return JSON in this exact format:
+{
+  "type": "routine",
+  "title": "Your [Morning/Evening/Full Face] Routine",
+  "subtitle": "A brief personalized description",
+  "steps": [
+    {
+      "stepNumber": 1,
+      "stepName": "CLEANSE",
+      "productId": "holy-hydration-cleanser",
+      "instruction": "Specific instruction for this step",
+      "tip": "Optional pro tip"
+    }
+  ],
+  "totalCost": 45,
+  "summary": "A brief encouraging summary of the routine"
+}
+
+PRODUCT CATALOG:
+`;
+
+        const COMPARISON_SYSTEM_PROMPT = `You are an expert beauty advisor for e.l.f. Cosmetics specializing in finding affordable dupes. Your job is to find e.l.f. products that match high-end competitors.
+
+IMPORTANT RULES:
+1. ONLY recommend products from the provided catalog
+2. Focus on products that have the competitor in their "similarTo" field
+3. If no exact match exists, find the closest alternative based on product type and benefits
+4. Calculate accurate savings
+5. Be honest about similarities and differences
+6. Always respond with valid JSON
+
+Return JSON in this exact format:
+{
+  "type": "comparison",
+  "competitorBrand": "Charlotte Tilbury",
+  "competitorProduct": "Hollywood Flawless Filter",
+  "competitorPrice": 49,
+  "matches": [
+    {
+      "productId": "halo-glow-liquid-filter",
+      "matchScore": 95,
+      "savings": 35,
+      "sharedBenefits": ["radiant finish", "natural coverage", "hydrating"],
+      "differences": "e.l.f. version has slightly lighter coverage"
+    }
+  ],
+  "summary": "A compelling summary of why the e.l.f. alternative is great"
+}
+
+PRODUCT CATALOG:
+`;
+
+        const GENERAL_SYSTEM_PROMPT = `You are elfvisor, a friendly AI shopping assistant for e.l.f. Cosmetics. Help users find the perfect beauty products.
+
+Determine the user's intent:
+- If they want a ROUTINE (skincare routine, makeup routine, morning routine, etc), set type to "routine"
+- If they want a DUPE/COMPARISON (similar to, dupe for, alternative to, like X brand), set type to "comparison"  
+- If it's a general product question, set type to "general"
+
+Always respond with JSON:
+{
+  "type": "routine" | "comparison" | "general",
+  "query_details": "extracted details about what they want"
+}`;
+
+        // ===========================================
+        // STATE MANAGEMENT
+        // ===========================================
         let currentSkinType = null;
         let currentCoverage = null;
+        let currentView = 'empty'; // 'empty', 'grid', 'routine', 'comparison'
+        let isLoading = false;
 
-        // --- FILTERING LOGIC ---
-        function filterProductsByCriteria(skinType, coverage) {
-            return ALL_PRODUCTS.filter(product => {
-                // Filter by skin type if provided
-                if (skinType && product.skinType) {
-                    if (!product.skinType.includes(skinType)) {
-                        return false;
-                    }
-                }
-                
-                // Filter by coverage if provided
-                // Only filter by coverage if the product has a coverage value
-                // Products without coverage (like skincare, lip products) should still show
-                if (coverage && product.coverage !== null) {
-                    if (product.coverage !== coverage) {
-                        return false;
-                    }
-                }
-                
-                return true;
-            });
-        }
-
-        // --- DOM ELEMENTS ---
+        // ===========================================
+        // DOM ELEMENTS
+        // ===========================================
         const initialView = document.getElementById('initial-view');
         const splitView = document.getElementById('split-view');
         const chatHistory = document.getElementById('chat-history');
         const productPanel = document.getElementById('product-panel');
         const emptyProducts = document.getElementById('empty-products');
         const productGrid = document.getElementById('product-grid');
+        const routineView = document.getElementById('routine-view');
+        const comparisonView = document.getElementById('comparison-view');
         const initialInput = document.getElementById('initial-input');
-        const chatInput = document.getElementById('chat-input'); 
+        const chatInput = document.getElementById('chat-input');
 
-        // --- STATE HANDLING ---
-        function handleInitialSubmit() {
-            const query = initialInput.value.trim();
-            if (!query) return;
-
-            // Reset filter state
-            currentSkinType = null;
-            currentCoverage = null;
-
-            // Transition UI
-            initialView.style.opacity = '0';
-            initialView.style.pointerEvents = 'none';
-            
-            splitView.classList.remove('pointer-events-none');
-            splitView.style.opacity = '1';
-
-            // Show the New Chat button after a delay
-            setTimeout(() => {
-                document.getElementById('new-chat-btn').classList.remove('hidden');
-            }, 500);
-
-            // Show products immediately (all products initially)
-            renderProducts(ALL_PRODUCTS);
-
-            // Add User Message
-            addMessage('user', query);
-
-            // Delay for AI "Thinking"
-            setTimeout(() => {
-                askSkinType();
-            }, 800);
+        // ===========================================
+        // HELPER FUNCTIONS
+        // ===========================================
+        function getProductById(id) {
+            return ALL_PRODUCTS.find(p => p.id === id);
         }
 
-        // Handle Sidebar Chat Submit (Follow up)
-        function handleChatSubmit() {
-            const query = chatInput.value.trim();
-            if (!query) return;
-
-            // 1. Add User Message
-            addMessage('user', query);
-            chatInput.value = '';
-
-            // 2. Simulate AI Thinking & Update
-            setTimeout(() => {
-                // Add AI Response
-                const responseHTML = `
-                    <div class="flex gap-2 mb-2">
-                        <div class="w-8 h-8 rounded-full bg-black flex items-center justify-center p-1.5">
-                            <img src="logo-elf.svg" alt="elf" class="w-full h-full object-contain" />
-                        </div>
-                    </div>
-                    <div class="text-sm space-y-4 leading-relaxed" style="color: #4B5563;">
-                      <p>I've updated your recommendations!</p>
-                      <p>Since you're looking for that perfect base, here are our <span class="font-bold">Holy Grail</span> foundations and complexion boosters. The <span class="font-bold">Halo Glow Liquid Filter</span> is especially great for that "lit-from-within" look.</p>
-                    </div>
-                `;
-                
-                const msgDiv = document.createElement('div');
-                msgDiv.className = `flex justify-start fade-in`;
-                const bubble = document.createElement('div');
-                bubble.className = `max-w-[95%] p-4 text-sm leading-relaxed`;
-                bubble.style.backgroundColor = '#F9FAFB';
-                bubble.innerHTML = responseHTML;
-                msgDiv.appendChild(bubble);
-                chatHistory.scrollTop = chatHistory.scrollHeight;
-
-                // 3. Update Grid with filtered products
-                const filteredProducts = filterProductsByCriteria(currentSkinType, currentCoverage);
-                renderProducts(filteredProducts.length > 0 ? filteredProducts : ALL_PRODUCTS);
-            }, 1000);
+        function getProductCatalogForPrompt() {
+            return JSON.stringify(ALL_PRODUCTS.map(p => ({
+                id: p.id,
+                name: p.name,
+                price: p.price,
+                productType: p.productType,
+                routineStep: p.routineStep,
+                applicationOrder: p.applicationOrder,
+                benefits: p.benefits,
+                skinType: p.skinType,
+                similarTo: p.similarTo,
+                usage: p.usage
+            })), null, 2);
         }
 
-        // Allow Enter key for initial
-        initialInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') handleInitialSubmit();
-        });
+        function setInitialQuery(query) {
+            initialInput.value = query;
+            initialInput.focus();
+        }
 
-        // Allow Enter key for sidebar chat
-        chatInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') handleChatSubmit();
-        });
+        function showView(viewName) {
+            currentView = viewName;
+            emptyProducts.classList.add('hidden');
+            productGrid.classList.add('hidden');
+            routineView.classList.add('hidden');
+            comparisonView.classList.add('hidden');
 
-        // --- CHAT LOGIC ---
+            switch(viewName) {
+                case 'grid':
+                    productGrid.classList.remove('hidden');
+                    break;
+                case 'routine':
+                    routineView.classList.remove('hidden');
+                    break;
+                case 'comparison':
+                    comparisonView.classList.remove('hidden');
+                    break;
+                default:
+                    emptyProducts.classList.remove('hidden');
+            }
+            productPanel.style.opacity = '1';
+        }
 
+        // ===========================================
+        // OPENAI API INTEGRATION
+        // ===========================================
+        async function callOpenAI(systemPrompt, userMessage) {
+            if (OPENAI_API_KEY === 'YOUR_OPENAI_API_KEY_HERE') {
+                throw new Error('Please set your OpenAI API key in the code');
+            }
+
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${OPENAI_API_KEY}`
+                },
+                body: JSON.stringify({
+                    model: 'gpt-4o-mini',
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userMessage }
+                    ],
+                    response_format: { type: 'json_object' },
+                    temperature: 0.7
+                })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error?.message || 'API request failed');
+            }
+
+            const data = await response.json();
+            return JSON.parse(data.choices[0].message.content);
+        }
+
+        async function detectIntent(userQuery) {
+            try {
+                const result = await callOpenAI(GENERAL_SYSTEM_PROMPT, userQuery);
+                return result;
+            } catch (error) {
+                console.error('Intent detection error:', error);
+                // Fallback to keyword detection
+                const query = userQuery.toLowerCase();
+                if (query.includes('routine') || query.includes('morning') || query.includes('evening') || query.includes('night')) {
+                    return { type: 'routine', query_details: userQuery };
+                } else if (query.includes('dupe') || query.includes('similar') || query.includes('alternative') || query.includes('like')) {
+                    return { type: 'comparison', query_details: userQuery };
+                }
+                return { type: 'general', query_details: userQuery };
+            }
+        }
+
+        async function generateRoutine(userQuery) {
+            const catalog = getProductCatalogForPrompt();
+            const fullPrompt = ROUTINE_SYSTEM_PROMPT + catalog;
+            return await callOpenAI(fullPrompt, userQuery);
+        }
+
+        async function generateComparison(userQuery) {
+            const catalog = getProductCatalogForPrompt();
+            const fullPrompt = COMPARISON_SYSTEM_PROMPT + catalog;
+            return await callOpenAI(fullPrompt, userQuery);
+        }
+
+        // ===========================================
+        // UI RENDERING FUNCTIONS
+        // ===========================================
         function addMessage(role, text, isHTML = false) {
             const msgDiv = document.createElement('div');
             msgDiv.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'} fade-in`;
@@ -608,151 +1009,221 @@
             msgDiv.appendChild(bubble);
             chatHistory.appendChild(msgDiv);
             chatHistory.scrollTop = chatHistory.scrollHeight;
+            return msgDiv;
         }
 
-        function askSkinType() {
-            const container = document.createElement('div');
-            container.className = 'space-y-4 fade-in';
-            container.innerHTML = `
-                <div class="flex justify-start">
-                   <div class="p-4 rounded-2xl rounded-tl-sm text-sm shadow-sm" style="background-color: #F9FAFB;">
-                      <p class="font-bold mb-2">Help us narrow it down.</p>
-                      <p>What is your skin type?</p>
-                   </div>
-                </div>
-                <div class="flex flex-wrap gap-2 pl-2">
-                    <button onclick="handleOption('Oily')" class="px-4 py-2 border border-black rounded-full text-sm hover:bg-black hover:text-white transition-colors">Oily</button>
-                    <button onclick="handleOption('Dry')" class="px-4 py-2 border border-black rounded-full text-sm hover:bg-black hover:text-white transition-colors">Dry</button>
-                    <button onclick="handleOption('Combination')" class="px-4 py-2 border border-black rounded-full text-sm hover:bg-black hover:text-white transition-colors">Combination</button>
-                    <button onclick="handleOption('Normal')" class="px-4 py-2 border border-black rounded-full text-sm hover:bg-black hover:text-white transition-colors">Normal</button>
-                </div>
-            `;
-            chatHistory.appendChild(container);
-            chatHistory.scrollTop = chatHistory.scrollHeight;
-        }
-
-        function askCoverage() {
-            const container = document.createElement('div');
-            container.className = 'space-y-4 fade-in mt-4';
-            container.innerHTML = `
-                <div class="flex justify-start">
-                   <div class="p-4 rounded-2xl rounded-tl-sm text-sm shadow-sm" style="background-color: #F9FAFB;">
-                      <p>And what kind of coverage are you looking for?</p>
-                   </div>
-                </div>
-                <div class="flex flex-wrap gap-2 pl-2">
-                    <button onclick="handleFinalOption('Sheer / Natural')" class="px-4 py-2 border border-black rounded-full text-sm hover:bg-black hover:text-white transition-colors">Sheer / Natural</button>
-                    <button onclick="handleFinalOption('Medium')" class="px-4 py-2 border border-black rounded-full text-sm hover:bg-black hover:text-white transition-colors">Medium</button>
-                    <button onclick="handleFinalOption('Full Coverage')" class="px-4 py-2 border border-black rounded-full text-sm hover:bg-black hover:text-white transition-colors">Full Coverage</button>
-                </div>
-            `;
-            chatHistory.appendChild(container);
-            chatHistory.scrollTop = chatHistory.scrollHeight;
-        }
-
-        function handleOption(selected) {
-            // Remove buttons to lock selection
-            const btnContainer = chatHistory.lastElementChild.querySelector('.flex-wrap');
-            if(btnContainer) btnContainer.style.pointerEvents = 'none';
-            if(btnContainer) btnContainer.style.opacity = '0.6';
-
-            // Update filter state
-            currentSkinType = selected;
-
-            addMessage('user', selected);
+        function addLoadingMessage() {
+            const msgDiv = document.createElement('div');
+            msgDiv.id = 'loading-message';
+            msgDiv.className = 'flex justify-start fade-in';
             
-            // Refine products based on skin type (with slight delay to ensure state is updated)
-            setTimeout(() => {
-                const filteredProducts = filterProductsByCriteria(currentSkinType, currentCoverage);
-                renderProducts(filteredProducts.length > 0 ? filteredProducts : ALL_PRODUCTS);
-            }, 100);
-            
-            setTimeout(askCoverage, 600);
-        }
-
-        function handleFinalOption(selected) {
-            const btnContainer = chatHistory.lastElementChild.querySelector('.flex-wrap');
-            if(btnContainer) btnContainer.style.pointerEvents = 'none';
-            if(btnContainer) btnContainer.style.opacity = '0.6';
-
-            // Update filter state
-            currentCoverage = selected;
-
-            addMessage('user', selected);
-            
-            // Refine products based on both skin type and coverage (with slight delay to ensure state is updated)
-            setTimeout(() => {
-                const filteredProducts = filterProductsByCriteria(currentSkinType, currentCoverage);
-                renderProducts(filteredProducts.length > 0 ? filteredProducts : ALL_PRODUCTS);
-            }, 100);
-            
-            setTimeout(() => {
-                showFinalResults();
-            }, 800);
-        }
-
-        function showFinalResults() {
-            // 1. Show Analysis
-            const analysisHTML = `
-                <div class="flex gap-2 mb-2">
+            const bubble = document.createElement('div');
+            bubble.className = 'max-w-[85%] p-4 text-sm leading-relaxed shadow-sm text-gray-800 rounded-2xl rounded-tl-sm';
+            bubble.style.backgroundColor = '#F9FAFB';
+            bubble.innerHTML = `
+                <div class="flex items-center gap-3">
                     <div class="w-8 h-8 rounded-full bg-black flex items-center justify-center p-1.5">
                         <img src="logo-elf.svg" alt="elf" class="w-full h-full object-contain" />
                     </div>
-                </div>
-                <div class="text-sm space-y-4 leading-relaxed" style="color: #4B5563;">
-                  <p class="font-medium">
-                    Finding the right products to reduce signs of aging is all about a solid routine + the right ingredients. To reduce signs of aging, focus on products with these proven ingredients:
-                  </p>
-                  <ul class="space-y-3 pl-2">
-                    <li class="flex gap-2"><span class="text-black">•</span><span><span class="font-bold">Sunscreen (SPF 30+)</span> – Protects against wrinkles.</span></li>
-                    <li class="flex gap-2"><span class="text-black">•</span><span><span class="font-bold">Retinol</span> – Boosts collagen and cell renewal.</span></li>
-                    <li class="flex gap-2"><span class="text-black">•</span><span><span class="font-bold">Vitamin C</span> – Brightens and defends.</span></li>
-                    <li class="flex gap-2"><span class="text-black">•</span><span><span class="font-bold">Hyaluronic Acid</span> – Deeply hydrates.</span></li>
-                  </ul>
-                  <div class="flex gap-4 pt-2" style="color: #4B5563;">
-                    <span class="cursor-pointer hover:text-black">👍</span>
-                    <span class="cursor-pointer hover:text-black">👎</span>
-                    <span class="cursor-pointer hover:text-black">📋</span>
-                  </div>
+                    <span class="loading-dots">Thinking</span>
                 </div>
             `;
-            
-            const msgDiv = document.createElement('div');
-            msgDiv.className = `flex justify-start fade-in`;
-            const bubble = document.createElement('div');
-            bubble.className = `max-w-[95%] p-4 text-sm leading-relaxed`; 
-            bubble.style.backgroundColor = '#F9FAFB';
-            bubble.innerHTML = analysisHTML;
+
             msgDiv.appendChild(bubble);
             chatHistory.appendChild(msgDiv);
             chatHistory.scrollTop = chatHistory.scrollHeight;
-
-            // 2. Products are already filtered and displayed by handleFinalOption()
-            // Don't re-render here to avoid flickering
+            return msgDiv;
         }
 
-        // --- PRODUCT RENDERER ---
-        function renderProducts(productList = ALL_PRODUCTS) {
-            emptyProducts.classList.add('hidden');
-            productGrid.classList.remove('hidden');
-            productPanel.style.opacity = '1';
+        function removeLoadingMessage() {
+            const loading = document.getElementById('loading-message');
+            if (loading) loading.remove();
+        }
 
-            // Clear existing
+        function renderRoutineView(routineData) {
+            let totalCost = 0;
+            let stepsHTML = '';
+
+            routineData.steps.forEach((step, index) => {
+                const product = getProductById(step.productId);
+                if (!product) return;
+                
+                totalCost += product.price;
+
+                stepsHTML += `
+                    <div class="routine-step relative flex gap-6 pb-8 fade-in" style="animation-delay: ${index * 0.1}s">
+                        <!-- Step Number Circle -->
+                        <div class="flex-shrink-0 w-12 h-12 rounded-full bg-black text-white flex items-center justify-center font-bold text-lg">
+                            ${step.stepNumber}
+                        </div>
+                        
+                        <!-- Step Content -->
+                        <div class="flex-1 bg-gray-50 rounded-2xl p-6 hover:shadow-lg transition-shadow">
+                            <div class="flex gap-4">
+                                <!-- Product Image -->
+                                <div class="w-24 h-24 flex-shrink-0 bg-white rounded-xl p-2 border border-gray-100">
+                                    <img src="${product.image}" alt="${product.name}" class="w-full h-full object-contain" />
+                                </div>
+                                
+                                <!-- Product Info -->
+                                <div class="flex-1">
+                                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">${step.stepName}</p>
+                                    <h3 class="font-bold text-lg mb-1">${product.name}</h3>
+                                    <p class="text-sm text-gray-600 mb-3">${step.instruction}</p>
+                                    ${step.tip ? `<p class="text-xs text-gray-500 italic">💡 ${step.tip}</p>` : ''}
+                                </div>
+                                
+                                <!-- Price & CTA -->
+                                <div class="flex flex-col items-end justify-between">
+                                    <span class="font-bold text-lg">$${product.price}</span>
+                                    <button class="bg-black text-white text-xs font-bold py-2 px-4 rounded-full hover:bg-gray-800 transition-colors">
+                                        ADD
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            routineView.innerHTML = `
+                <div class="mb-8 text-center">
+                    <h2 class="text-3xl font-bold mb-2">${routineData.title}</h2>
+                    <p class="text-gray-600">${routineData.subtitle}</p>
+                </div>
+                
+                <div class="space-y-2 mb-8">
+                    ${stepsHTML}
+                </div>
+                
+                <!-- Summary Card -->
+                <div class="bg-gradient-to-r from-gray-900 to-black text-white rounded-2xl p-6 mt-8">
+                    <div class="flex justify-between items-center mb-4">
+                        <div>
+                            <p class="text-sm text-gray-400">Complete Routine</p>
+                            <p class="text-2xl font-bold">${routineData.steps.length} Products</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm text-gray-400">Total</p>
+                            <p class="text-2xl font-bold">$${totalCost}</p>
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-300 mb-4">${routineData.summary}</p>
+                    <button class="w-full bg-white text-black font-bold py-3 rounded-full hover:bg-gray-100 transition-colors">
+                        ADD ALL TO BAG
+                    </button>
+                </div>
+            `;
+
+            showView('routine');
+        }
+
+        function renderComparisonView(comparisonData) {
+            let matchesHTML = '';
+
+            comparisonData.matches.forEach((match, index) => {
+                const product = getProductById(match.productId);
+                if (!product) return;
+
+                const benefitsHTML = match.sharedBenefits.map(b => 
+                    `<span class="inline-flex items-center gap-1 text-sm"><span class="text-green-500">✓</span> ${b}</span>`
+                ).join('');
+
+                matchesHTML += `
+                    <div class="comparison-card rounded-2xl p-6 mb-6 fade-in" style="animation-delay: ${index * 0.15}s">
+                        <div class="flex gap-8">
+                            <!-- Competitor Side -->
+                            <div class="flex-1 text-center opacity-50">
+                                <div class="w-32 h-32 mx-auto bg-gray-200 rounded-xl flex items-center justify-center mb-4">
+                                    <span class="text-4xl">🏷️</span>
+                                </div>
+                                <p class="text-sm text-gray-500">${comparisonData.competitorBrand}</p>
+                                <p class="font-bold">${comparisonData.competitorProduct}</p>
+                                <p class="text-xl font-bold mt-2">$${comparisonData.competitorPrice}</p>
+                            </div>
+                            
+                            <!-- VS Divider -->
+                            <div class="flex flex-col items-center justify-center">
+                                <div class="w-12 h-12 rounded-full bg-black text-white flex items-center justify-center font-bold">
+                                    VS
+                                </div>
+                                <div class="savings-badge text-white text-xs font-bold px-3 py-1 rounded-full mt-2">
+                                    SAVE $${match.savings}
+                                </div>
+                            </div>
+                            
+                            <!-- ELF Side -->
+                            <div class="flex-1 text-center">
+                                <div class="w-32 h-32 mx-auto bg-white rounded-xl p-2 border-2 border-green-400 mb-4">
+                                    <img src="${product.image}" alt="${product.name}" class="w-full h-full object-contain" />
+                                </div>
+                                <p class="text-sm text-gray-500">e.l.f. Cosmetics</p>
+                                <p class="font-bold">${product.name}</p>
+                                <p class="text-xl font-bold text-green-600 mt-2">$${product.price}</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Match Score -->
+                        <div class="mt-6 pt-6 border-t border-gray-200">
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="text-sm font-medium">Match Score</span>
+                                <span class="font-bold text-green-600">${match.matchScore}%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2 mb-4">
+                                <div class="bg-green-500 h-2 rounded-full" style="width: ${match.matchScore}%"></div>
+                            </div>
+                            
+                            <!-- Shared Benefits -->
+                            <p class="text-sm font-medium mb-2">What they share:</p>
+                            <div class="flex flex-wrap gap-3 mb-4">
+                                ${benefitsHTML}
+                            </div>
+                            
+                            ${match.differences ? `<p class="text-sm text-gray-500 italic">Note: ${match.differences}</p>` : ''}
+                        </div>
+                        
+                        <!-- CTA -->
+                        <button class="w-full mt-4 bg-black text-white font-bold py-3 rounded-full hover:bg-gray-800 transition-colors">
+                            ADD ${product.name.toUpperCase()} TO BAG - $${product.price}
+                        </button>
+                    </div>
+                `;
+            });
+
+            comparisonView.innerHTML = `
+                <div class="mb-8 text-center">
+                    <div class="inline-block bg-green-100 text-green-800 text-sm font-bold px-4 py-2 rounded-full mb-4">
+                        💰 DUPE ALERT
+                    </div>
+                    <h2 class="text-3xl font-bold mb-2">e.l.f. Alternatives Found!</h2>
+                    <p class="text-gray-600">Get the same look for less with these amazing dupes</p>
+                </div>
+                
+                ${matchesHTML}
+                
+                <!-- Summary -->
+                <div class="bg-gray-50 rounded-2xl p-6 text-center">
+                    <p class="text-gray-700">${comparisonData.summary}</p>
+                </div>
+            `;
+
+            showView('comparison');
+        }
+
+        function renderProducts(productList = ALL_PRODUCTS) {
             productGrid.innerHTML = '';
 
             productList.forEach(p => {
                 const card = document.createElement('div');
                 card.className = "flex flex-col p-4 relative group cursor-pointer hover:shadow-lg transition-shadow rounded-lg fade-in";
                 
-                // Stars logic
                 let stars = '';
                 for(let i=0; i<5; i++) {
                     stars += i < Math.floor(p.rating) ? '★' : '☆';
                 }
 
-                // Shades logic
                 let shadesHTML = '';
-                if(p.shades.length > 0) {
+                if(p.shades && p.shades.length > 0) {
                     shadesHTML = `<div class="flex items-center gap-1 mb-3">`;
                     p.shades.slice(0,4).forEach(color => {
                         shadesHTML += `<div class="w-3 h-3 rounded-full border border-gray-200" style="background-color: ${color}"></div>`;
@@ -763,12 +1234,10 @@
                     shadesHTML = `<div class="h-3 mb-3"></div>`;
                 }
 
-                // Badge logic
                 const badgeHTML = p.badge 
                     ? `<div class="absolute top-4 left-4 ${p.badgeColor || 'text-white'} text-[10px] font-bold px-2 py-1 rounded-full z-10 uppercase tracking-wider" style="${p.badgeStyle || 'background-color: #000000;'}">${p.badge}</div>` 
                     : '';
 
-                // Image Logic (Real vs Fallback Icon)
                 let imageHTML;
                 if(p.image) {
                      imageHTML = `<img src="${p.image}" alt="${p.name}" class="w-full h-full object-contain mix-blend-multiply hover:scale-105 transition-transform duration-500" />`;
@@ -807,7 +1276,151 @@
                 `;
                 productGrid.appendChild(card);
             });
+
+            showView('grid');
         }
+
+        // ===========================================
+        // MAIN CHAT HANDLERS
+        // ===========================================
+        async function processUserQuery(query) {
+            if (isLoading) return;
+            isLoading = true;
+
+            // Show loading state
+            const loadingMsg = addLoadingMessage();
+
+            try {
+                // Detect intent
+                const intent = await detectIntent(query);
+                removeLoadingMessage();
+
+                if (intent.type === 'routine') {
+                    // Generate routine
+                    const loadingMsg2 = addLoadingMessage();
+                    const routineData = await generateRoutine(query);
+                    removeLoadingMessage();
+
+                    // Add AI response
+                    addMessage('ai', `
+                        <div class="flex gap-2 mb-2">
+                            <div class="w-8 h-8 rounded-full bg-black flex items-center justify-center p-1.5">
+                                <img src="logo-elf.svg" alt="elf" class="w-full h-full object-contain" />
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <p class="font-medium">I've created a personalized routine just for you! 🌟</p>
+                            <p class="text-gray-600">Check out the ${routineData.steps.length} products I've selected on the right. Each step includes specific instructions for the best results.</p>
+                        </div>
+                    `, true);
+
+                    renderRoutineView(routineData);
+
+                } else if (intent.type === 'comparison') {
+                    // Generate comparison
+                    const loadingMsg2 = addLoadingMessage();
+                    const comparisonData = await generateComparison(query);
+                    removeLoadingMessage();
+
+                    // Add AI response
+                    addMessage('ai', `
+                        <div class="flex gap-2 mb-2">
+                            <div class="w-8 h-8 rounded-full bg-black flex items-center justify-center p-1.5">
+                                <img src="logo-elf.svg" alt="elf" class="w-full h-full object-contain" />
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <p class="font-medium">Great news! I found ${comparisonData.matches.length} e.l.f. alternative${comparisonData.matches.length > 1 ? 's' : ''} for you! 💰</p>
+                            <p class="text-gray-600">You could save up to <span class="font-bold text-green-600">$${comparisonData.matches[0]?.savings || 0}</span> with our dupe. Check out the comparison on the right!</p>
+                        </div>
+                    `, true);
+
+                    renderComparisonView(comparisonData);
+
+                } else {
+                    // General query - show product grid
+                    addMessage('ai', `
+                        <div class="flex gap-2 mb-2">
+                            <div class="w-8 h-8 rounded-full bg-black flex items-center justify-center p-1.5">
+                                <img src="logo-elf.svg" alt="elf" class="w-full h-full object-contain" />
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <p class="font-medium">Here are some products you might love! ✨</p>
+                            <p class="text-gray-600">Browse our collection on the right, or try asking me for:</p>
+                            <ul class="text-sm text-gray-500 list-disc list-inside">
+                                <li>A personalized skincare routine</li>
+                                <li>An e.l.f. dupe for a high-end product</li>
+                            </ul>
+                        </div>
+                    `, true);
+
+                    renderProducts(ALL_PRODUCTS);
+                }
+
+            } catch (error) {
+                removeLoadingMessage();
+                console.error('Error processing query:', error);
+                
+                // Show error message with fallback
+                addMessage('ai', `
+                    <div class="flex gap-2 mb-2">
+                        <div class="w-8 h-8 rounded-full bg-black flex items-center justify-center p-1.5">
+                            <img src="logo-elf.svg" alt="elf" class="w-full h-full object-contain" />
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        <p class="font-medium">Oops! ${error.message.includes('API key') ? 'Please set your OpenAI API key in the code to enable AI features.' : 'Something went wrong.'}</p>
+                        <p class="text-gray-600">In the meantime, check out our best-selling products! 👉</p>
+                    </div>
+                `, true);
+
+                renderProducts(ALL_PRODUCTS);
+            }
+
+            isLoading = false;
+        }
+
+        function handleInitialSubmit() {
+            const query = initialInput.value.trim();
+            if (!query) return;
+
+            // Transition UI
+            initialView.style.opacity = '0';
+            initialView.style.pointerEvents = 'none';
+            
+            splitView.classList.remove('pointer-events-none');
+            splitView.style.opacity = '1';
+
+            setTimeout(() => {
+                document.getElementById('new-chat-btn').classList.remove('hidden');
+            }, 500);
+
+            // Add user message
+            addMessage('user', query);
+
+            // Process with AI
+            processUserQuery(query);
+        }
+
+        function handleChatSubmit() {
+            const query = chatInput.value.trim();
+            if (!query || isLoading) return;
+
+            addMessage('user', query);
+            chatInput.value = '';
+
+            processUserQuery(query);
+        }
+
+        // Enter key handlers
+        initialInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleInitialSubmit();
+        });
+
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleChatSubmit();
+        });
     </script>
 </body>
 </html>

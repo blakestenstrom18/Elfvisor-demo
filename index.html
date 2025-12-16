@@ -34,17 +34,17 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Loading dots animation */
-        .loading-dots::after {
-            content: '';
-            animation: dots 1.5s steps(4, end) infinite;
+        /* Typing cursor animation */
+        .typing-cursor::after {
+            content: '|';
+            animation: blink 0.7s infinite;
+            color: #000;
+            font-weight: 400;
         }
 
-        @keyframes dots {
-            0%, 20% { content: ''; }
-            40% { content: '.'; }
-            60% { content: '..'; }
-            80%, 100% { content: '...'; }
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
         }
 
         /* Routine step connector line */
@@ -65,6 +65,72 @@
 
         .savings-badge {
             background: linear-gradient(135deg, #4ADE80 0%, #22C55E 100%);
+        }
+
+        /* Cart drawer */
+        .cart-drawer {
+            transform: translateX(100%);
+            transition: transform 0.3s ease-in-out;
+        }
+
+        .cart-drawer.open {
+            transform: translateX(0);
+        }
+
+        .cart-overlay {
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease-in-out;
+        }
+
+        .cart-overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Toast notification */
+        .toast {
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s ease-out;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        /* Cart badge pulse */
+        @keyframes cartPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.3); }
+            100% { transform: scale(1); }
+        }
+
+        .cart-pulse {
+            animation: cartPulse 0.3s ease-out;
+        }
+
+        /* Progress steps animation */
+        .progress-step {
+            animation: fadeInUp 0.3s ease-out forwards;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Add to cart button animation */
+        .add-btn-success {
+            animation: addSuccess 0.5s ease-out;
+        }
+
+        @keyframes addSuccess {
+            0% { transform: scale(1); }
+            30% { transform: scale(0.95); background-color: #22C55E; }
+            60% { transform: scale(1.05); }
+            100% { transform: scale(1); }
         }
     </style>
 </head>
@@ -102,7 +168,10 @@
             <span class="text-xl cursor-pointer">🇺🇸</span>
             <span class="text-lg cursor-pointer hover:text-gray-300">❤️</span>
             <div class="w-6 h-6 rounded-full bg-[#fcdbb0] text-black flex items-center justify-center font-bold text-xs cursor-pointer">PW</div>
-            <span class="text-lg cursor-pointer hover:text-gray-300">🛍️</span>
+            <div class="relative cursor-pointer" onclick="openCart()">
+                <span class="text-lg hover:text-gray-300 transition-colors">🛍️</span>
+                <span id="cart-badge" class="hidden absolute -top-2 -right-2 bg-[#4ADE80] text-black text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">0</span>
+            </div>
         </div>
     </header>
 
@@ -151,15 +220,15 @@
         <!-- View 2 & 3: Split Layout (Chat + Results) -->
         <div id="split-view" class="w-full h-full flex opacity-0 transition-opacity duration-700 pointer-events-none">
             
-            <!-- Left: Chat Interface -->
-            <div class="w-full md:w-[35%] border-r border-gray-100 flex flex-col bg-white z-10 shadow-xl md:shadow-none h-full relative">
-                <div id="chat-history" class="flex-1 overflow-y-auto p-6 space-y-6 pb-24 no-scrollbar">
+            <!-- Left: Chat Interface (starts full width, shrinks when content appears) -->
+            <div id="chat-panel" class="w-full md:w-full flex flex-col bg-white z-10 h-full relative transition-all duration-500">
+                <div id="chat-history" class="flex-1 overflow-y-auto p-6 space-y-6 pb-24 no-scrollbar max-w-2xl mx-auto w-full transition-all duration-500">
                     <!-- Chat messages will be injected here -->
                 </div>
 
                 <!-- Fixed Input Area -->
                 <div class="absolute bottom-0 w-full p-4 border-t border-gray-100 bg-white">
-                    <div class="relative">
+                    <div id="chat-input-wrapper" class="relative max-w-2xl mx-auto transition-all duration-500">
                     <input
                         id="chat-input"
                         type="text"
@@ -174,14 +243,8 @@
                 </div>
             </div>
 
-            <!-- Right: Dynamic Content Panel -->
-            <div id="product-panel" class="flex-1 bg-white overflow-y-auto p-8 opacity-0 transition-opacity duration-700">
-                
-                <!-- Empty State -->
-                <div id="empty-products" class="h-full flex flex-col items-center justify-center text-gray-300 space-y-4">
-                    <span class="text-6xl opacity-20">🛍️</span>
-                    <p>Products will appear here...</p>
-                </div>
+            <!-- Right: Dynamic Content Panel (hidden until content is ready) -->
+            <div id="product-panel" class="hidden flex-1 bg-white overflow-y-auto p-8 transition-all duration-500 border-l border-gray-100">
 
                 <!-- Grid State (default product view) -->
                 <div id="product-grid" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-10 max-w-6xl mx-auto">
@@ -201,6 +264,55 @@
             </div>
         </div>
     </main>
+
+    <!-- Cart Overlay -->
+    <div id="cart-overlay" class="cart-overlay fixed inset-0 bg-black/50 z-[60]" onclick="closeCart()"></div>
+
+    <!-- Cart Drawer -->
+    <div id="cart-drawer" class="cart-drawer fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-[70] flex flex-col">
+        <!-- Cart Header -->
+        <div class="flex items-center justify-between p-6 border-b border-gray-100">
+            <h2 class="text-xl font-bold">YOUR BAG (<span id="cart-count-drawer">0</span>)</h2>
+            <button onclick="closeCart()" class="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+
+        <!-- Cart Items -->
+        <div id="cart-items" class="flex-1 overflow-y-auto p-6 space-y-4">
+            <!-- Cart items will be injected here -->
+            <div id="cart-empty" class="flex flex-col items-center justify-center h-full text-gray-400">
+                <span class="text-5xl mb-4">🛍️</span>
+                <p class="text-lg font-medium">Your bag is empty</p>
+                <p class="text-sm">Add some products to get started!</p>
+            </div>
+        </div>
+
+        <!-- Cart Footer -->
+        <div id="cart-footer" class="hidden border-t border-gray-100 p-6 space-y-4 bg-gray-50">
+            <div class="flex justify-between items-center">
+                <span class="text-gray-600">Subtotal</span>
+                <span id="cart-subtotal" class="text-2xl font-bold">$0</span>
+            </div>
+            <div id="free-shipping-msg" class="text-sm text-center py-2 px-4 rounded-full bg-blue-50 text-blue-700">
+                Add <span id="shipping-remaining">$35</span> more for FREE shipping!
+            </div>
+            <button class="w-full bg-black text-white font-bold py-4 rounded-full hover:bg-gray-800 transition-colors">
+                CHECKOUT
+            </button>
+            <p class="text-xs text-center text-gray-500">
+                FREE FULL SIZE GIFT with orders $35+
+            </p>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast fixed bottom-6 left-1/2 -translate-x-1/2 bg-black text-white px-6 py-3 rounded-full shadow-lg z-[80] flex items-center gap-3">
+        <span class="text-green-400">✓</span>
+        <span id="toast-message">Added to bag!</span>
+    </div>
 
     <!-- Load API config (gitignored - copy config.example.js to config.js) -->
     <script src="config.js"></script>
@@ -229,7 +341,7 @@
                 badgeStyle: null,
                 shades: [],
                 cta: "ADD TO BAG",
-                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwb80c1255/2023/PowerGripNiacinamideMini/81518_Open_R.jpg?sfrm=png&sw=600&q=90",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw616007d6/2025/HH!CleanFreakDailyCleanser/57422_Closed_V4_R.jpg?sfrm=png&sw=600&q=90",
                 category: "skincare",
                 skinType: ["Dry", "Normal", "Combination"],
                 coverage: null,
@@ -258,7 +370,7 @@
                 badgeStyle: "background-color: #4ADE80;",
                 shades: [],
                 cta: "ADD TO BAG",
-                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw62fcd96a/2023/PowerGripPrimerNiacinamide/81517_OpenA_R%20copy.jpg?sfrm=png&sw=600&q=90",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw459c3d0a/2024/ThirstBurstDrops/57586_CLOSED_v5_R.jpg?sfrm=png&sw=600&q=90",
                 category: "skincare",
                 skinType: ["Dry", "Normal", "Combination"],
                 coverage: null,
@@ -478,7 +590,7 @@
                 badgeStyle: "background-color: #4ADE80;",
                 shades: ["#F3E5DC", "#E6Ccb2", "#D2B48C", "#A0522D"],
                 cta: "SELECT SHADE",
-                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw2a9a75a5/2024/PowerGripMatte/Mini/83946_OPENA_v2_R-2.jpg?sfrm=png&sw=600&q=90",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwb303949d/2024/SoftGlamSatinFoundation/Medium/84948_Open_A_v3_R.jpg?sfrm=png&sw=600&q=90",
                 category: "makeup",
                 skinType: ["Combination", "Normal"],
                 coverage: "Medium",
@@ -644,7 +756,7 @@
                 badgeStyle: null,
                 shades: [],
                 cta: "SELECT SHADE",
-                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw71ec6e04/2021/82846_Swatch.jpg?sfrm=png&sw=600&q=90",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw550b5964/2025/BiteSizeEyeshadow_ShadeExts/21192_OpenA_V2_R.jpg?sfrm=png&sw=600&q=90",
                 category: "makeup",
                 skinType: ["All", "Normal"],
                 coverage: null,
@@ -671,7 +783,7 @@
                 badgeStyle: null,
                 shades: [],
                 cta: "SELECT SHADE",
-                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwf98e6c7f/2025/82846_POWER_GRIP_PRIMER_CAMILA_TRIPTYCH_V2.jpg?sw=600&q=90",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw391ec05c/2025/NoBudgeRetractableEyeliner_ShadeEXT/81330/81330_OpenA_V2_R.jpg?sfrm=png&sw=600&q=90",
                 category: "makeup",
                 skinType: ["All", "Normal"],
                 coverage: null,
@@ -698,7 +810,7 @@
                 badgeStyle: null,
                 shades: [],
                 cta: "ADD TO BAG",
-                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwc1ed3e7e/2025/82846_POWER_GRIP_PRIMER_SYLWIA_TRIPTYCH_V2.jpg?sw=600&q=90",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwf03400f7/2023/LashNRollMascara/83071_OPEN_A_R.jpg?sfrm=png&sw=600&q=90",
                 category: "makeup",
                 skinType: ["All", "Normal"],
                 coverage: null,
@@ -753,7 +865,7 @@
                 badgeStyle: null,
                 shades: ["#DC143C", "#8B0000", "#FF69B4", "#FF1493"],
                 cta: "SELECT SHADE",
-                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw5e401cf0/2021/82846_Closed_R.jpg?sfrm=png&sw=600&q=90",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw3873c95a/2025/GRSLIPSTICK/83303_OpenA_V5_R.jpg?sfrm=png&sw=600&q=90",
                 category: "makeup",
                 skinType: ["All", "Normal"],
                 coverage: null,
@@ -768,37 +880,862 @@
                     { brand: "MAC", product: "Satin Lipstick", price: 23 },
                     { brand: "Charlotte Tilbury", product: "Matte Revolution Lipstick", price: 35 }
                 ]
+            },
+            // === MORE EYES PRODUCTS ===
+            {
+                id: "liquid-glitter-eyeliner",
+                name: "Liquid Glitter Eyeliner",
+                price: 5,
+                rating: 4.3,
+                reviews: 2800,
+                badge: "Glitter",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #F472B6;",
+                shades: ["#FFD700", "#C0C0C0", "#8B4513"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwec1a25b4/2025/GlitzshowEyeshadowStick/83795_OpenA_V2_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["All", "Normal"],
+                coverage: null,
+                productType: "eyeliner",
+                routineStep: "morning",
+                applicationOrder: 11,
+                usage: "Apply along lash line or over eyeshadow for a sparkly accent. Let dry completely before opening eyes.",
+                benefits: ["glittery", "long-lasting", "precise tip", "party-ready"],
+                keyIngredients: ["vitamin E"],
+                concerns: ["eye definition", "sparkle"],
+                similarTo: [
+                    { brand: "Stila", product: "Glitter & Glow Liquid Eye Shadow", price: 24 },
+                    { brand: "NYX", product: "Glitter Goals Liquid Liner", price: 9 }
+                ]
+            },
+            {
+                id: "no-budge-shadow-stick",
+                name: "No Budge Shadow Stick",
+                price: 4,
+                rating: 4.5,
+                reviews: 6400,
+                badge: "Cream Shadow",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #4ADE80;",
+                shades: ["#D4AF37", "#8B7355", "#2F4F4F"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw550b5964/2025/BiteSizeEyeshadow_ShadeExts/21192_OpenA_V2_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["All", "Normal", "Oily"],
+                coverage: null,
+                productType: "eyeshadow",
+                routineStep: "morning",
+                applicationOrder: 10,
+                usage: "Swipe directly onto lids and blend with fingertip. Can be used alone or as a base for powder shadow.",
+                benefits: ["cream-to-powder", "waterproof", "crease-proof", "blendable"],
+                keyIngredients: ["vitamin E", "jojoba oil"],
+                concerns: ["creasing", "long-wear"],
+                similarTo: [
+                    { brand: "Laura Mercier", product: "Caviar Stick Eye Colour", price: 32 },
+                    { brand: "Charlotte Tilbury", product: "Eyes to Mesmerize", price: 32 }
+                ]
+            },
+            {
+                id: "H2O-proof-eyeliner-pen",
+                name: "H2O Proof Eyeliner Pen",
+                price: 3,
+                rating: 4.6,
+                reviews: 8900,
+                badge: "Waterproof",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #000000;",
+                shades: [],
+                cta: "ADD TO BAG",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwb1d40603/21652_SILO.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["All", "Normal", "Oily"],
+                coverage: null,
+                productType: "eyeliner",
+                routineStep: "morning",
+                applicationOrder: 11,
+                usage: "Draw along lash line starting from inner corner. Wing out at outer corner for cat-eye look.",
+                benefits: ["waterproof", "smudge-proof", "precise felt tip", "intense black"],
+                keyIngredients: ["vitamin E"],
+                concerns: ["eye definition", "waterproof makeup"],
+                similarTo: [
+                    { brand: "Stila", product: "Stay All Day Waterproof Liquid Liner", price: 24 },
+                    { brand: "KVD", product: "Tattoo Liner", price: 23 }
+                ]
+            },
+            {
+                id: "lid-laminate-eye-primer",
+                name: "Lid Laminate Eye Primer",
+                price: 7,
+                rating: 4.4,
+                reviews: 3200,
+                badge: null,
+                badgeColor: null,
+                badgeStyle: null,
+                shades: [],
+                cta: "ADD TO BAG",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw2752241f/2025/IncrediCurlMascara/85170_OpenA_V3_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["All", "Normal", "Oily"],
+                coverage: null,
+                productType: "eye-primer",
+                routineStep: "morning",
+                applicationOrder: 9,
+                usage: "Apply thin layer to lids before eyeshadow. Blend with finger and let set for 30 seconds.",
+                benefits: ["crease-proof", "color-intensifying", "long-wear", "smooth base"],
+                keyIngredients: ["vitamin E", "niacinamide"],
+                concerns: ["creasing", "shadow longevity", "color vibrancy"],
+                similarTo: [
+                    { brand: "Urban Decay", product: "Eyeshadow Primer Potion", price: 27 },
+                    { brand: "NARS", product: "Pro-Prime Smudge Proof Eyeshadow Base", price: 28 }
+                ]
+            },
+            {
+                id: "expert-liquid-liner",
+                name: "Expert Liquid Liner",
+                price: 3,
+                rating: 4.5,
+                reviews: 7200,
+                badge: "Best Value",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #FACC15;",
+                shades: [],
+                cta: "ADD TO BAG",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw862f4e62/21702_SILO2.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["All", "Normal"],
+                coverage: null,
+                productType: "eyeliner",
+                routineStep: "morning",
+                applicationOrder: 11,
+                usage: "Use the fine-tip brush to create thin to bold lines. Perfect for winged liner looks.",
+                benefits: ["precise application", "long-lasting", "matte finish", "easy to use"],
+                keyIngredients: ["vitamin E"],
+                concerns: ["eye definition", "winged liner"],
+                similarTo: [
+                    { brand: "Maybelline", product: "Master Precise Liquid Liner", price: 10 },
+                    { brand: "NYX", product: "Epic Ink Liner", price: 9 }
+                ]
+            },
+            {
+                id: "metallic-flare-eyeliner",
+                name: "Metallic Flare Eyeliner",
+                price: 4,
+                rating: 4.3,
+                reviews: 2100,
+                badge: "Metallic",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #F472B6;",
+                shades: ["#FFD700", "#C0C0C0", "#CD7F32"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw391ec05c/2025/NoBudgeRetractableEyeliner_ShadeEXT/81330/81330_OpenA_V2_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["All", "Normal"],
+                coverage: null,
+                productType: "eyeliner",
+                routineStep: "morning",
+                applicationOrder: 11,
+                usage: "Apply to inner corners to brighten eyes or along lash line for a metallic pop.",
+                benefits: ["metallic finish", "buildable", "smooth application", "dimensional"],
+                keyIngredients: ["vitamin E"],
+                concerns: ["eye brightening", "metallic look"],
+                similarTo: [
+                    { brand: "Marc Jacobs", product: "Highliner Gel Eye Crayon", price: 27 },
+                    { brand: "Urban Decay", product: "24/7 Glide-On Eye Pencil", price: 24 }
+                ]
+            },
+            {
+                id: "cream-glide-eye-pencil",
+                name: "Cream Glide Eye Pencil",
+                price: 2,
+                rating: 4.4,
+                reviews: 5800,
+                badge: null,
+                badgeColor: null,
+                badgeStyle: null,
+                shades: ["#000000", "#8B4513", "#191970"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw391ec05c/2025/NoBudgeRetractableEyeliner_ShadeEXT/81330/81330_OpenA_V2_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["All", "Normal"],
+                coverage: null,
+                productType: "eyeliner",
+                routineStep: "morning",
+                applicationOrder: 11,
+                usage: "Line upper and lower lash lines. Smudge with finger or brush for a smoky effect.",
+                benefits: ["creamy texture", "easy to smudge", "long-wearing", "buildable"],
+                keyIngredients: ["vitamin E", "jojoba oil"],
+                concerns: ["eye definition", "smoky eyes"],
+                similarTo: [
+                    { brand: "Bobbi Brown", product: "Perfectly Defined Long-Wear Eye Pencil", price: 32 },
+                    { brand: "MAC", product: "Eye Kohl", price: 20 }
+                ]
+            },
+            {
+                id: "big-mood-mascara",
+                name: "Big Mood Mascara",
+                price: 7,
+                rating: 4.6,
+                reviews: 4900,
+                badge: "Volumizing",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #000000;",
+                shades: [],
+                cta: "ADD TO BAG",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw2752241f/2025/IncrediCurlMascara/85170_OpenA_V3_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["All", "Normal"],
+                coverage: null,
+                productType: "mascara",
+                routineStep: "morning",
+                applicationOrder: 12,
+                usage: "Wiggle wand at roots and sweep through to tips. Apply multiple coats for drama.",
+                benefits: ["extreme volume", "lengthening", "dramatic", "clump-free"],
+                keyIngredients: ["vitamin E", "panthenol"],
+                concerns: ["volume", "dramatic lashes"],
+                similarTo: [
+                    { brand: "Too Faced", product: "Better Than Sex Mascara", price: 29 },
+                    { brand: "Benefit", product: "They're Real! Lengthening Mascara", price: 28 }
+                ]
+            },
+            {
+                id: "lash-n-roll-mascara",
+                name: "Lash 'n Roll Mascara",
+                price: 6,
+                rating: 4.5,
+                reviews: 3600,
+                badge: "Curling",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #000000;",
+                shades: [],
+                cta: "ADD TO BAG",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwf03400f7/2023/LashNRollMascara/83071_OPEN_A_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["All", "Normal"],
+                coverage: null,
+                productType: "mascara",
+                routineStep: "morning",
+                applicationOrder: 12,
+                usage: "Sweep wand from roots to tips in an upward motion. Holds curl all day.",
+                benefits: ["curling", "lifting", "lengthening", "smudge-proof"],
+                keyIngredients: ["vitamin E", "rice bran wax"],
+                concerns: ["straight lashes", "curl hold", "length"],
+                similarTo: [
+                    { brand: "L'Oreal", product: "Voluminous Lash Paradise", price: 12 },
+                    { brand: "Clinique", product: "High Impact Curling Mascara", price: 23 }
+                ]
+            },
+            {
+                id: "16hr-shadow-palette-rose-gold",
+                name: "16HR Shadow Palette - Rose Gold",
+                price: 10,
+                rating: 4.7,
+                reviews: 5200,
+                badge: "Long-Wear",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #000000;",
+                shades: [],
+                cta: "ADD TO BAG",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw550b5964/2025/BiteSizeEyeshadow_ShadeExts/21192_OpenA_V2_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["All", "Normal"],
+                coverage: null,
+                productType: "eyeshadow",
+                routineStep: "morning",
+                applicationOrder: 10,
+                usage: "Apply matte shades for definition, shimmer shades for highlight. Blend seamlessly with brush.",
+                benefits: ["16-hour wear", "highly pigmented", "blendable", "matte & shimmer"],
+                keyIngredients: ["vitamin E"],
+                concerns: ["eye makeup", "long wear", "versatile looks"],
+                similarTo: [
+                    { brand: "Huda Beauty", product: "Rose Gold Remastered Palette", price: 65 },
+                    { brand: "Anastasia Beverly Hills", product: "Soft Glam Palette", price: 45 }
+                ]
+            },
+            // === MORE LIPS PRODUCTS ===
+            {
+                id: "sheer-slick-lipstick",
+                name: "Sheer Slick Lipstick",
+                price: 6,
+                rating: 4.5,
+                reviews: 4100,
+                badge: "Sheer",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #F472B6;",
+                shades: ["#FFB6C1", "#FF69B4", "#DC143C", "#8B0000"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw3873c95a/2025/GRSLIPSTICK/83303_OpenA_V5_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["All", "Dry", "Normal"],
+                coverage: null,
+                productType: "lipstick",
+                routineStep: "both",
+                applicationOrder: 13,
+                usage: "Swipe on for a wash of color with a glossy finish. Reapply throughout the day.",
+                benefits: ["sheer coverage", "glossy", "hydrating", "buildable"],
+                keyIngredients: ["vitamin E", "coconut oil", "shea butter"],
+                concerns: ["lip hydration", "natural look", "glossy finish"],
+                similarTo: [
+                    { brand: "Clinique", product: "Almost Lipstick", price: 22 },
+                    { brand: "Bobbi Brown", product: "Extra Lip Tint", price: 32 }
+                ]
+            },
+            {
+                id: "liquid-matte-lipstick",
+                name: "Liquid Matte Lipstick",
+                price: 7,
+                rating: 4.4,
+                reviews: 6800,
+                badge: "Matte",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #000000;",
+                shades: ["#DC143C", "#8B0000", "#FF1493", "#8B4513"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw0a232b51/2025/GlossyLipStainEXT/81991_OpenA_V2_R_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["All", "Normal", "Oily"],
+                coverage: null,
+                productType: "lipstick",
+                routineStep: "morning",
+                applicationOrder: 13,
+                usage: "Apply with applicator starting from center of lips. Let dry for long-lasting matte finish.",
+                benefits: ["liquid-to-matte", "long-wearing", "highly pigmented", "transfer-proof"],
+                keyIngredients: ["vitamin E"],
+                concerns: ["lip color", "long wear", "matte finish"],
+                similarTo: [
+                    { brand: "Stila", product: "Stay All Day Liquid Lipstick", price: 24 },
+                    { brand: "Anastasia Beverly Hills", product: "Liquid Lipstick", price: 20 }
+                ]
+            },
+            {
+                id: "lip-plumping-gloss",
+                name: "Lip Plumping Gloss",
+                price: 8,
+                rating: 4.3,
+                reviews: 3400,
+                badge: "Plumping",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #F472B6;",
+                shades: ["#FFB6C1", "#FF69B4", "#DC143C"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw1218c1df/2023/PoutCloutLipPlumpingPen/PinkyOut/82292_OpenA_V3_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["All", "Dry", "Normal"],
+                coverage: null,
+                productType: "lip-gloss",
+                routineStep: "both",
+                applicationOrder: 13,
+                usage: "Apply to clean lips or over lipstick. You may feel a slight tingling sensation.",
+                benefits: ["plumping", "glossy", "tingling sensation", "volumizing"],
+                keyIngredients: ["peppermint oil", "vitamin E", "hyaluronic acid"],
+                concerns: ["thin lips", "lip volume", "glossy look"],
+                similarTo: [
+                    { brand: "Too Faced", product: "Lip Injection Extreme", price: 32 },
+                    { brand: "Buxom", product: "Full-On Plumping Lip Polish", price: 22 }
+                ]
+            },
+            {
+                id: "jelly-pop-lip-gloss",
+                name: "Jelly Pop Lip Gloss",
+                price: 4,
+                rating: 4.6,
+                reviews: 5600,
+                badge: "Viral Hit",
+                badgeColor: "text-black",
+                badgeStyle: "background-color: #F472B6;",
+                shades: ["#FFB6C1", "#FF69B4", "#DC143C", "#8B4513"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw286e5dc4/2024/GlowReviverLipOilEXT/82013_OPENA_v5_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["All", "Dry", "Normal"],
+                coverage: null,
+                productType: "lip-gloss",
+                routineStep: "both",
+                applicationOrder: 13,
+                usage: "Apply to lips for a jelly-like glossy finish. Layer for more intensity.",
+                benefits: ["jelly texture", "high shine", "non-sticky", "buildable color"],
+                keyIngredients: ["vitamin E", "jojoba oil"],
+                concerns: ["lip shine", "glossy look", "hydration"],
+                similarTo: [
+                    { brand: "Fenty Beauty", product: "Gloss Bomb Universal Lip Luminizer", price: 21 },
+                    { brand: "NYX", product: "Butter Gloss", price: 7 }
+                ]
+            },
+            {
+                id: "lip-liner-pencil",
+                name: "Lip Liner Pencil",
+                price: 3,
+                rating: 4.5,
+                reviews: 4200,
+                badge: "Essential",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #000000;",
+                shades: ["#8B4513", "#DC143C", "#FF69B4", "#8B0000"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw3873c95a/2025/GRSLIPSTICK/83303_OpenA_V5_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["All", "Normal"],
+                coverage: null,
+                productType: "lip-liner",
+                routineStep: "morning",
+                applicationOrder: 13,
+                usage: "Line lips starting from cupid's bow. Fill in entire lip for longer-lasting color.",
+                benefits: ["defines lips", "prevents feathering", "long-wearing", "creamy"],
+                keyIngredients: ["vitamin E", "jojoba oil"],
+                concerns: ["lip definition", "lip color longevity"],
+                similarTo: [
+                    { brand: "MAC", product: "Lip Pencil", price: 20 },
+                    { brand: "NYX", product: "Slim Lip Pencil", price: 5 }
+                ]
+            },
+            {
+                id: "tinted-lip-balm",
+                name: "Tinted Lip Balm SPF 15",
+                price: 4,
+                rating: 4.4,
+                reviews: 3800,
+                badge: "SPF 15",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #4ADE80;",
+                shades: ["#FFB6C1", "#FF69B4", "#DC143C"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwa20e9884/2025/GlowReviverMeltingLipBalm/84808/84808_OpenA_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["All", "Dry", "Normal"],
+                coverage: null,
+                productType: "lip-balm",
+                routineStep: "both",
+                applicationOrder: 13,
+                usage: "Apply throughout the day for hydration and a hint of color. Reapply after eating.",
+                benefits: ["SPF protection", "hydrating", "sheer color", "nourishing"],
+                keyIngredients: ["shea butter", "vitamin E", "coconut oil"],
+                concerns: ["dry lips", "sun protection", "natural color"],
+                similarTo: [
+                    { brand: "Fresh", product: "Sugar Lip Treatment SPF 15", price: 26 },
+                    { brand: "Burt's Bees", product: "Tinted Lip Balm", price: 5 }
+                ]
+            },
+            {
+                id: "glossy-lip-stain",
+                name: "Glossy Lip Stain",
+                price: 6,
+                rating: 4.3,
+                reviews: 2900,
+                badge: "Long-Wear",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #000000;",
+                shades: ["#DC143C", "#8B0000", "#FF1493"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwa20e9884/2025/GlowReviverMeltingLipBalm/84808/84808_OpenA_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["All", "Normal"],
+                coverage: null,
+                productType: "lip-stain",
+                routineStep: "morning",
+                applicationOrder: 13,
+                usage: "Apply to center of lips and blend outward. Let set for long-lasting color with a glossy finish.",
+                benefits: ["long-wearing", "glossy finish", "buildable", "lightweight"],
+                keyIngredients: ["vitamin E"],
+                concerns: ["lip color longevity", "natural look"],
+                similarTo: [
+                    { brand: "YSL", product: "Tatouage Couture Velvet Cream", price: 38 },
+                    { brand: "Benefit", product: "Benetint Lip & Cheek Stain", price: 22 }
+                ]
+            },
+            {
+                id: "pout-clout-lip-plumper",
+                name: "Pout Clout Lip Plumper",
+                price: 9,
+                rating: 4.4,
+                reviews: 3100,
+                badge: "Trending",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #F472B6;",
+                shades: ["#FFB6C1", "#FF69B4"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwa20e9884/2025/GlowReviverMeltingLipBalm/84808/84808_OpenA_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["All", "Dry", "Normal"],
+                coverage: null,
+                productType: "lip-plumper",
+                routineStep: "both",
+                applicationOrder: 13,
+                usage: "Apply to lips for an instant plumping effect. Can be worn alone or over lipstick.",
+                benefits: ["instant plumping", "hydrating", "glossy", "cooling sensation"],
+                keyIngredients: ["peppermint oil", "hyaluronic acid", "vitamin E"],
+                concerns: ["lip volume", "thin lips", "hydration"],
+                similarTo: [
+                    { brand: "Dior", product: "Addict Lip Maximizer", price: 38 },
+                    { brand: "Too Faced", product: "Lip Injection Glossy", price: 28 }
+                ]
+            },
+            {
+                id: "kissproof-lip-creme",
+                name: "Kiss-Proof Lip Creme",
+                price: 8,
+                rating: 4.5,
+                reviews: 4700,
+                badge: "Transfer-Proof",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #000000;",
+                shades: ["#DC143C", "#8B0000", "#FF1493", "#8B4513"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw0a232b51/2025/GlossyLipStainEXT/81991_OpenA_V2_R_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["All", "Normal"],
+                coverage: null,
+                productType: "lipstick",
+                routineStep: "morning",
+                applicationOrder: 13,
+                usage: "Apply with applicator and let set for 60 seconds. No transfer, no budge!",
+                benefits: ["transfer-proof", "long-wearing", "highly pigmented", "matte finish"],
+                keyIngredients: ["vitamin E"],
+                concerns: ["lip color longevity", "transfer-proof", "matte look"],
+                similarTo: [
+                    { brand: "Maybelline", product: "SuperStay Matte Ink", price: 11 },
+                    { brand: "Fenty Beauty", product: "Stunna Lip Paint", price: 27 }
+                ]
+            },
+            {
+                id: "lip-exfoliator",
+                name: "Lip Exfoliator",
+                price: 4,
+                rating: 4.6,
+                reviews: 5100,
+                badge: "Smoothing",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #4ADE80;",
+                shades: [],
+                cta: "ADD TO BAG",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwa20e9884/2025/GlowReviverMeltingLipBalm/84808/84808_OpenA_R.jpg?sfrm=png&sw=600&q=90",
+                category: "skincare",
+                skinType: ["All", "Dry"],
+                coverage: null,
+                productType: "lip-care",
+                routineStep: "evening",
+                applicationOrder: 1,
+                usage: "Massage onto lips in circular motions. Wipe off and follow with lip balm.",
+                benefits: ["exfoliating", "smoothing", "removes dead skin", "preps lips"],
+                keyIngredients: ["sugar", "vitamin E", "jojoba oil", "shea butter"],
+                concerns: ["dry lips", "flaky lips", "smooth lips"],
+                similarTo: [
+                    { brand: "Laneige", product: "Lip Sleeping Mask", price: 24 },
+                    { brand: "Sara Happ", product: "The Lip Scrub", price: 24 }
+                ]
+            },
+            // === MORE FACE PRODUCTS ===
+            {
+                id: "poreless-face-primer",
+                name: "Poreless Face Primer",
+                price: 8,
+                rating: 4.5,
+                reviews: 6200,
+                badge: "Pore-Blurring",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #4ADE80;",
+                shades: [],
+                cta: "ADD TO BAG",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwed6a3b79/2021/82846_OpenA_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["All", "Oily", "Combination"],
+                coverage: null,
+                productType: "primer",
+                routineStep: "morning",
+                applicationOrder: 5,
+                usage: "Apply to pores and fine lines before foundation. Focus on T-zone for oily skin.",
+                benefits: ["pore-minimizing", "mattifying", "smooth texture", "oil-control"],
+                keyIngredients: ["niacinamide", "tea tree oil"],
+                concerns: ["large pores", "oily skin", "texture"],
+                similarTo: [
+                    { brand: "Benefit", product: "The POREfessional Face Primer", price: 35 },
+                    { brand: "Smashbox", product: "Photo Finish Pore Minimizing Primer", price: 42 }
+                ]
+            },
+            {
+                id: "setting-spray-mist-set",
+                name: "Setting Spray - Mist & Set",
+                price: 6,
+                rating: 4.4,
+                reviews: 7800,
+                badge: "Long-Wear",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #000000;",
+                shades: [],
+                cta: "ADD TO BAG",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw56f702a5/2024/SuntouchableUpdatedAssets_US/WhoaGlow/57279_CLOSED_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["All", "Normal", "Oily", "Combination"],
+                coverage: null,
+                productType: "setting-spray",
+                routineStep: "morning",
+                applicationOrder: 14,
+                usage: "Hold 8-10 inches from face. Mist in an X and T motion after makeup application.",
+                benefits: ["long-lasting makeup", "matte finish", "controls oil", "lightweight"],
+                keyIngredients: ["niacinamide", "cucumber extract"],
+                concerns: ["makeup longevity", "oil control"],
+                similarTo: [
+                    { brand: "Urban Decay", product: "All Nighter Setting Spray", price: 35 },
+                    { brand: "NYX", product: "Matte Finish Setting Spray", price: 10 }
+                ]
+            },
+            {
+                id: "dewy-setting-spray",
+                name: "Dewy Setting Spray",
+                price: 6,
+                rating: 4.5,
+                reviews: 5900,
+                badge: "Glow",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #FACC15;",
+                shades: [],
+                cta: "ADD TO BAG",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw56f702a5/2024/SuntouchableUpdatedAssets_US/WhoaGlow/57279_CLOSED_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["All", "Dry", "Normal"],
+                coverage: null,
+                productType: "setting-spray",
+                routineStep: "morning",
+                applicationOrder: 14,
+                usage: "Spray over finished makeup for a dewy, luminous glow. Can also be used throughout the day for refresh.",
+                benefits: ["dewy finish", "hydrating", "radiant glow", "makeup setting"],
+                keyIngredients: ["hyaluronic acid", "glycerin", "cucumber extract"],
+                concerns: ["dry skin", "dewy look", "makeup setting"],
+                similarTo: [
+                    { brand: "MAC", product: "Fix+ Radiant Mist", price: 29 },
+                    { brand: "Tatcha", product: "Luminous Dewy Skin Mist", price: 48 }
+                ]
+            },
+            {
+                id: "halo-glow-setting-powder",
+                name: "Halo Glow Setting Powder",
+                price: 9,
+                rating: 4.3,
+                reviews: 4200,
+                badge: "Luminous",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #FACC15;",
+                shades: ["#F5DEB3", "#D2B48C", "#A0522D"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw2aabd9eb/2022/HaloGlowLiquidFilter/82113_Halo_Glow_Liquid_Filter_Fair/82113_OpenA_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["All", "Dry", "Normal"],
+                coverage: null,
+                productType: "setting-powder",
+                routineStep: "morning",
+                applicationOrder: 14,
+                usage: "Dust lightly over makeup to set while maintaining a luminous finish. Focus on T-zone.",
+                benefits: ["luminous finish", "sets makeup", "not cakey", "light-reflecting"],
+                keyIngredients: ["hyaluronic acid", "squalane"],
+                concerns: ["setting makeup", "maintaining glow", "longevity"],
+                similarTo: [
+                    { brand: "Hourglass", product: "Ambient Lighting Powder", price: 50 },
+                    { brand: "Laura Mercier", product: "Translucent Loose Setting Powder", price: 42 }
+                ]
+            },
+            {
+                id: "perfect-finish-hd-powder",
+                name: "Perfect Finish HD Powder",
+                price: 6,
+                rating: 4.4,
+                reviews: 8100,
+                badge: "HD Finish",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #000000;",
+                shades: [],
+                cta: "ADD TO BAG",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw2aabd9eb/2022/HaloGlowLiquidFilter/82113_Halo_Glow_Liquid_Filter_Fair/82113_OpenA_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["All", "Normal", "Oily"],
+                coverage: null,
+                productType: "setting-powder",
+                routineStep: "morning",
+                applicationOrder: 14,
+                usage: "Apply with brush or puff to set makeup. Perfect for photos with no flashback.",
+                benefits: ["HD finish", "translucent", "no flashback", "mattifying"],
+                keyIngredients: ["silica"],
+                concerns: ["setting makeup", "photo-ready", "shine control"],
+                similarTo: [
+                    { brand: "RCMA", product: "No Color Powder", price: 12 },
+                    { brand: "Make Up For Ever", product: "HD Pressed Powder", price: 39 }
+                ]
+            },
+            {
+                id: "baked-highlighter",
+                name: "Baked Highlighter",
+                price: 4,
+                rating: 4.6,
+                reviews: 9200,
+                badge: "Best Value",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #FACC15;",
+                shades: ["#FFD700", "#FFC0CB", "#E6E6FA"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwb5b892b8/2023/HaloGlowWandContour/84706_OpenA_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["All", "Normal", "Dry"],
+                coverage: null,
+                productType: "highlighter",
+                routineStep: "morning",
+                applicationOrder: 8,
+                usage: "Apply to high points of face: cheekbones, brow bone, cupid's bow, and bridge of nose.",
+                benefits: ["intense glow", "buildable", "smooth texture", "long-lasting"],
+                keyIngredients: ["vitamin E"],
+                concerns: ["adding glow", "highlighting", "dimension"],
+                similarTo: [
+                    { brand: "Becca", product: "Shimmering Skin Perfector Pressed", price: 38 },
+                    { brand: "Fenty Beauty", product: "Killawatt Freestyle Highlighter", price: 36 }
+                ]
+            },
+            {
+                id: "putty-bronzer",
+                name: "Putty Bronzer",
+                price: 7,
+                rating: 4.5,
+                reviews: 5400,
+                badge: "Viral",
+                badgeColor: "text-black",
+                badgeStyle: "background-color: #F472B6;",
+                shades: ["#D2691E", "#8B4513", "#654321"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwb5b892b8/2023/HaloGlowWandContour/84706_OpenA_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["All", "Combination", "Oily"],
+                coverage: null,
+                productType: "bronzer",
+                routineStep: "morning",
+                applicationOrder: 8,
+                usage: "Warm between fingers and apply to areas where sun naturally hits: forehead, cheeks, nose.",
+                benefits: ["putty texture", "blendable", "natural bronze", "buildable"],
+                keyIngredients: ["squalane", "vitamin E"],
+                concerns: ["adding warmth", "bronzed look", "sun-kissed"],
+                similarTo: [
+                    { brand: "Milk Makeup", product: "Matte Bronzer", price: 30 },
+                    { brand: "Fenty Beauty", product: "Sun Stalk'r Instant Warmth Bronzer", price: 32 }
+                ]
+            },
+            {
+                id: "shimmer-highlighting-powder",
+                name: "Shimmer Highlighting Powder",
+                price: 5,
+                rating: 4.5,
+                reviews: 6700,
+                badge: "Shimmer",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #FACC15;",
+                shades: ["#FFD700", "#C0C0C0", "#FFC0CB"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwb5b892b8/2023/HaloGlowWandContour/84706_OpenA_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["All", "Normal", "Dry"],
+                coverage: null,
+                productType: "highlighter",
+                routineStep: "morning",
+                applicationOrder: 8,
+                usage: "Sweep onto high points of face with a fluffy brush for a luminous shimmer.",
+                benefits: ["intense shimmer", "buildable", "silky texture", "radiant"],
+                keyIngredients: ["vitamin E", "jojoba oil"],
+                concerns: ["glow", "shimmer", "highlighting"],
+                similarTo: [
+                    { brand: "Anastasia Beverly Hills", product: "Amrezy Highlighter", price: 30 },
+                    { brand: "ColourPop", product: "Super Shock Highlighter", price: 9 }
+                ]
+            },
+            {
+                id: "tone-adjusting-face-primer",
+                name: "Tone Adjusting Face Primer",
+                price: 10,
+                rating: 4.3,
+                reviews: 4100,
+                badge: "Color-Correcting",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #4ADE80;",
+                shades: ["#E8D5E8", "#B8E0B8", "#FFD8B8"],
+                cta: "SELECT SHADE",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwed6a3b79/2021/82846_OpenA_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["All", "Normal", "Combination"],
+                coverage: null,
+                productType: "primer",
+                routineStep: "morning",
+                applicationOrder: 5,
+                usage: "Apply color to target areas: lavender for sallow skin, green for redness, peach for dark circles.",
+                benefits: ["color-correcting", "brightening", "smoothing", "even tone"],
+                keyIngredients: ["niacinamide", "vitamin E"],
+                concerns: ["uneven tone", "redness", "sallow skin", "dark circles"],
+                similarTo: [
+                    { brand: "NYX", product: "Color Correcting Primer", price: 14 },
+                    { brand: "Smashbox", product: "Photo Finish Color Correcting Primer", price: 42 }
+                ]
+            },
+            {
+                id: "bronzing-drops",
+                name: "Bronzing Drops",
+                price: 12,
+                rating: 4.7,
+                reviews: 5800,
+                badge: "Trending",
+                badgeColor: "text-white",
+                badgeStyle: "background-color: #F472B6;",
+                shades: [],
+                cta: "ADD TO BAG",
+                image: "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw847a29b7/2024/BronzingDrops/57527/57527_Closed_R.jpg?sfrm=png&sw=600&q=90",
+                category: "makeup",
+                skinType: ["All", "Dry", "Normal"],
+                coverage: null,
+                productType: "bronzer",
+                routineStep: "morning",
+                applicationOrder: 6,
+                usage: "Mix 1-3 drops with foundation or moisturizer for a custom bronze glow.",
+                benefits: ["customizable bronze", "buildable", "natural glow", "mixable"],
+                keyIngredients: ["squalane", "vitamin E"],
+                concerns: ["bronzed look", "sun-kissed glow", "customization"],
+                similarTo: [
+                    { brand: "Isle of Paradise", product: "Self-Tanning Drops", price: 32 },
+                    { brand: "Drunk Elephant", product: "D-Bronzi Anti-Pollution Bronzing Drops", price: 38 }
+                ]
             }
         ];
 
         // ===========================================
         // SYSTEM PROMPTS FOR OPENAI
         // ===========================================
-        const ROUTINE_SYSTEM_PROMPT = `You are an expert beauty advisor for e.l.f. Cosmetics. Your job is to create personalized skincare and makeup routines using ONLY products from the provided catalog.
+        const ROUTINE_SYSTEM_PROMPT = `You are an expert beauty advisor for e.l.f. Cosmetics. Create focused, realistic routines using ONLY products from the catalog.
 
-IMPORTANT RULES:
-1. ONLY recommend products that exist in the catalog (match by id)
-2. Order products by their applicationOrder field
-3. Provide specific, helpful usage instructions
-4. Be encouraging and friendly in tone
-5. Always respond with valid JSON
+CRITICAL RULES FOR ROUTINE SIZE:
+- SKINCARE routine (morning/evening/night): MAX 4-5 products (cleanser, serum, moisturizer, SPF for morning)
+- MAKEUP routine: MAX 5-6 products (primer, base/foundation, concealer, blush/bronzer, mascara, lip)
+- "Full face" or "complete look": MAX 6-7 products total
+- NEVER recommend 10+ products - that's overwhelming and unrealistic
 
-When creating a routine, return JSON in this exact format:
+ROUTINE TYPE GUIDELINES:
+- "Morning routine" or "AM routine" = skincare only (3-4 steps) unless they say "with makeup"
+- "Night routine" or "evening routine" = skincare only (3-4 steps), NO makeup
+- "Skincare routine" = skincare products only
+- "Makeup routine" = makeup products only, assume skincare is already done
+- "Full routine" or "complete routine" = ask if they want skincare, makeup, or both
+
+IMPORTANT:
+1. ONLY use products from the catalog (match by id)
+2. Keep it simple and achievable
+3. Quality over quantity - recommend your TOP picks, not everything
+4. Be encouraging but realistic
+
+Return JSON in this format:
 {
   "type": "routine",
-  "title": "Your [Morning/Evening/Full Face] Routine",
-  "subtitle": "A brief personalized description",
+  "title": "Your Morning Skincare Routine",
+  "subtitle": "A simple 4-step routine for glowing skin",
   "steps": [
     {
       "stepNumber": 1,
       "stepName": "CLEANSE",
       "productId": "holy-hydration-cleanser",
-      "instruction": "Specific instruction for this step",
+      "instruction": "Specific instruction",
       "tip": "Optional pro tip"
     }
   ],
   "totalCost": 45,
-  "summary": "A brief encouraging summary of the routine"
+  "summary": "Brief encouraging summary"
 }
 
 PRODUCT CATALOG:
@@ -855,15 +1792,17 @@ Always respond with JSON:
         let currentCoverage = null;
         let currentView = 'empty'; // 'empty', 'grid', 'routine', 'comparison'
         let isLoading = false;
+        let cartItems = []; // Array of { productId, quantity }
+        let progressInterval = null;
 
         // ===========================================
         // DOM ELEMENTS
         // ===========================================
         const initialView = document.getElementById('initial-view');
         const splitView = document.getElementById('split-view');
+        const chatPanel = document.getElementById('chat-panel');
         const chatHistory = document.getElementById('chat-history');
         const productPanel = document.getElementById('product-panel');
-        const emptyProducts = document.getElementById('empty-products');
         const productGrid = document.getElementById('product-grid');
         const routineView = document.getElementById('routine-view');
         const comparisonView = document.getElementById('comparison-view');
@@ -899,25 +1838,320 @@ Always respond with JSON:
 
         function showView(viewName) {
             currentView = viewName;
-            emptyProducts.classList.add('hidden');
             productGrid.classList.add('hidden');
             routineView.classList.add('hidden');
             comparisonView.classList.add('hidden');
 
-            switch(viewName) {
-                case 'grid':
-                    productGrid.classList.remove('hidden');
-                    break;
-                case 'routine':
-                    routineView.classList.remove('hidden');
-                    break;
-                case 'comparison':
-                    comparisonView.classList.remove('hidden');
-                    break;
-                default:
-                    emptyProducts.classList.remove('hidden');
+            const chatInputWrapper = document.getElementById('chat-input-wrapper');
+
+            // Only show split view when we have actual content
+            if (viewName === 'grid' || viewName === 'routine' || viewName === 'comparison') {
+                // Shrink chat panel and show product panel
+                chatPanel.classList.remove('md:w-full');
+                chatPanel.classList.add('md:w-[35%]', 'border-r', 'border-gray-100');
+                
+                // Remove centering constraints from chat elements
+                chatHistory.classList.remove('max-w-2xl', 'mx-auto');
+                if (chatInputWrapper) {
+                    chatInputWrapper.classList.remove('max-w-2xl', 'mx-auto');
+                }
+                
+                // Show product panel
+                productPanel.classList.remove('hidden');
+                
+                switch(viewName) {
+                    case 'grid':
+                        productGrid.classList.remove('hidden');
+                        break;
+                    case 'routine':
+                        routineView.classList.remove('hidden');
+                        break;
+                    case 'comparison':
+                        comparisonView.classList.remove('hidden');
+                        break;
+                }
             }
-            productPanel.style.opacity = '1';
+        }
+
+        // ===========================================
+        // CART FUNCTIONS
+        // ===========================================
+        function addToCart(productId) {
+            const existingItem = cartItems.find(item => item.productId === productId);
+            
+            if (existingItem) {
+                existingItem.quantity += 1;
+            } else {
+                cartItems.push({ productId, quantity: 1 });
+            }
+            
+            updateCartUI();
+            showToast(getProductById(productId)?.name || 'Product');
+            
+            // Pulse animation on cart badge
+            const badge = document.getElementById('cart-badge');
+            badge.classList.remove('cart-pulse');
+            void badge.offsetWidth; // Trigger reflow
+            badge.classList.add('cart-pulse');
+        }
+
+        function removeFromCart(productId) {
+            cartItems = cartItems.filter(item => item.productId !== productId);
+            updateCartUI();
+        }
+
+        function updateCartQuantity(productId, delta) {
+            const item = cartItems.find(item => item.productId === productId);
+            if (item) {
+                item.quantity += delta;
+                if (item.quantity <= 0) {
+                    removeFromCart(productId);
+                } else {
+                    updateCartUI();
+                }
+            }
+        }
+
+        function getCartTotal() {
+            return cartItems.reduce((total, item) => {
+                const product = getProductById(item.productId);
+                return total + (product ? product.price * item.quantity : 0);
+            }, 0);
+        }
+
+        function getCartItemCount() {
+            return cartItems.reduce((count, item) => count + item.quantity, 0);
+        }
+
+        function updateCartUI() {
+            const count = getCartItemCount();
+            const total = getCartTotal();
+            
+            // Update badge
+            const badge = document.getElementById('cart-badge');
+            if (count > 0) {
+                badge.classList.remove('hidden');
+                badge.textContent = count > 99 ? '99+' : count;
+            } else {
+                badge.classList.add('hidden');
+            }
+            
+            // Update drawer count
+            document.getElementById('cart-count-drawer').textContent = count;
+            
+            // Update cart items list
+            const cartItemsContainer = document.getElementById('cart-items');
+            const cartEmpty = document.getElementById('cart-empty');
+            const cartFooter = document.getElementById('cart-footer');
+            
+            if (cartItems.length === 0) {
+                cartEmpty.classList.remove('hidden');
+                cartFooter.classList.add('hidden');
+                cartItemsContainer.innerHTML = '';
+                cartItemsContainer.appendChild(cartEmpty);
+            } else {
+                cartEmpty.classList.add('hidden');
+                cartFooter.classList.remove('hidden');
+                
+                cartItemsContainer.innerHTML = cartItems.map(item => {
+                    const product = getProductById(item.productId);
+                    if (!product) return '';
+                    
+                    return `
+                        <div class="flex gap-4 p-4 bg-gray-50 rounded-xl">
+                            <div class="w-20 h-20 bg-white rounded-lg p-2 flex-shrink-0">
+                                <img src="${product.image}" alt="${product.name}" class="w-full h-full object-contain" />
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="font-bold text-sm mb-1">${product.name}</h4>
+                                <p class="text-gray-600 font-medium">$${product.price}</p>
+                                <div class="flex items-center gap-3 mt-2">
+                                    <button onclick="updateCartQuantity('${item.productId}', -1)" class="w-7 h-7 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center font-bold transition-colors">-</button>
+                                    <span class="font-medium">${item.quantity}</span>
+                                    <button onclick="updateCartQuantity('${item.productId}', 1)" class="w-7 h-7 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center font-bold transition-colors">+</button>
+                                    <button onclick="removeFromCart('${item.productId}')" class="ml-auto text-gray-400 hover:text-red-500 text-sm transition-colors">Remove</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+            
+            // Update subtotal
+            document.getElementById('cart-subtotal').textContent = `$${total}`;
+            
+            // Update shipping message
+            const shippingMsg = document.getElementById('free-shipping-msg');
+            const shippingRemaining = document.getElementById('shipping-remaining');
+            if (total >= 35) {
+                shippingMsg.classList.remove('bg-blue-50', 'text-blue-700');
+                shippingMsg.classList.add('bg-green-50', 'text-green-700');
+                shippingMsg.innerHTML = '🎉 You qualify for FREE shipping!';
+            } else {
+                shippingMsg.classList.remove('bg-green-50', 'text-green-700');
+                shippingMsg.classList.add('bg-blue-50', 'text-blue-700');
+                shippingRemaining.textContent = `$${35 - total}`;
+                shippingMsg.innerHTML = `Add <span class="font-bold">$${35 - total}</span> more for FREE shipping!`;
+            }
+        }
+
+        function openCart() {
+            document.getElementById('cart-drawer').classList.add('open');
+            document.getElementById('cart-overlay').classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeCart() {
+            document.getElementById('cart-drawer').classList.remove('open');
+            document.getElementById('cart-overlay').classList.remove('open');
+            document.body.style.overflow = '';
+        }
+
+        // ===========================================
+        // TOAST NOTIFICATION
+        // ===========================================
+        function showToast(productName) {
+            const toast = document.getElementById('toast');
+            const message = document.getElementById('toast-message');
+            message.textContent = `${productName} added to bag!`;
+            
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2500);
+        }
+
+        // ===========================================
+        // TYPING ANIMATION
+        // ===========================================
+        async function typeMessage(element, text, speed = 20) {
+            element.classList.add('typing-cursor');
+            
+            for (let i = 0; i < text.length; i++) {
+                element.textContent += text[i];
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+                
+                // Variable speed for more natural feeling
+                const char = text[i];
+                let delay = speed;
+                if (char === '.' || char === '!' || char === '?') delay = speed * 8;
+                else if (char === ',') delay = speed * 4;
+                else if (char === ' ') delay = speed * 0.5;
+                
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+            
+            element.classList.remove('typing-cursor');
+        }
+
+        async function addTypingMessage(htmlContent, plainText) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'flex justify-start fade-in';
+            
+            const bubble = document.createElement('div');
+            bubble.className = 'max-w-[85%] p-4 text-sm leading-relaxed shadow-sm text-gray-800 rounded-2xl rounded-tl-sm';
+            bubble.style.backgroundColor = '#F9FAFB';
+            
+            // Add the avatar first
+            const avatarHTML = `
+                <div class="flex gap-2 mb-2">
+                    <div class="w-8 h-8 rounded-full bg-black flex items-center justify-center p-1.5">
+                        <img src="logo-elf.svg" alt="elf" class="w-full h-full object-contain" />
+                    </div>
+                </div>
+            `;
+            bubble.innerHTML = avatarHTML;
+            
+            // Create text container for typing
+            const textContainer = document.createElement('div');
+            textContainer.className = 'space-y-2';
+            bubble.appendChild(textContainer);
+            
+            msgDiv.appendChild(bubble);
+            chatHistory.appendChild(msgDiv);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+            
+            // Type out the message
+            await typeMessage(textContainer, plainText);
+            
+            // After typing, replace with full HTML for proper formatting
+            textContainer.innerHTML = htmlContent;
+            
+            return msgDiv;
+        }
+
+        // ===========================================
+        // SMART LOADING STATES
+        // ===========================================
+        function showProgressMessage(type) {
+            const steps = type === 'routine' 
+                ? [
+                    'Understanding your needs...',
+                    'Analyzing your skin type...',
+                    'Selecting the perfect products...',
+                    'Building your personalized routine...'
+                ]
+                : type === 'comparison'
+                ? [
+                    'Searching for that product...',
+                    'Finding e.l.f. alternatives...',
+                    'Calculating your savings...'
+                ]
+                : [
+                    'Understanding your request...',
+                    'Finding the best products...'
+                ];
+            
+            let currentStep = 0;
+            
+            const msgDiv = document.createElement('div');
+            msgDiv.id = 'progress-message';
+            msgDiv.className = 'flex justify-start fade-in';
+            
+            const bubble = document.createElement('div');
+            bubble.className = 'max-w-[85%] p-4 text-sm leading-relaxed shadow-sm text-gray-800 rounded-2xl rounded-tl-sm';
+            bubble.style.backgroundColor = '#F9FAFB';
+            
+            bubble.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-black flex items-center justify-center p-1.5">
+                        <img src="logo-elf.svg" alt="elf" class="w-full h-full object-contain" />
+                    </div>
+                    <div>
+                        <span id="progress-text" class="progress-step">${steps[0]}</span>
+                    </div>
+                </div>
+            `;
+            
+            msgDiv.appendChild(bubble);
+            chatHistory.appendChild(msgDiv);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+            
+            // Cycle through steps
+            progressInterval = setInterval(() => {
+                currentStep++;
+                if (currentStep < steps.length) {
+                    const textEl = document.getElementById('progress-text');
+                    if (textEl) {
+                        textEl.className = '';
+                        void textEl.offsetWidth; // Trigger reflow
+                        textEl.className = 'progress-step';
+                        textEl.textContent = steps[currentStep];
+                    }
+                }
+            }, 800);
+            
+            return msgDiv;
+        }
+
+        function removeProgressMessage() {
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                progressInterval = null;
+            }
+            const progress = document.getElementById('progress-message');
+            if (progress) progress.remove();
         }
 
         // ===========================================
@@ -1012,34 +2246,6 @@ Always respond with JSON:
             return msgDiv;
         }
 
-        function addLoadingMessage() {
-            const msgDiv = document.createElement('div');
-            msgDiv.id = 'loading-message';
-            msgDiv.className = 'flex justify-start fade-in';
-            
-            const bubble = document.createElement('div');
-            bubble.className = 'max-w-[85%] p-4 text-sm leading-relaxed shadow-sm text-gray-800 rounded-2xl rounded-tl-sm';
-            bubble.style.backgroundColor = '#F9FAFB';
-            bubble.innerHTML = `
-                <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-full bg-black flex items-center justify-center p-1.5">
-                        <img src="logo-elf.svg" alt="elf" class="w-full h-full object-contain" />
-                    </div>
-                    <span class="loading-dots">Thinking</span>
-                </div>
-            `;
-
-            msgDiv.appendChild(bubble);
-            chatHistory.appendChild(msgDiv);
-            chatHistory.scrollTop = chatHistory.scrollHeight;
-            return msgDiv;
-        }
-
-        function removeLoadingMessage() {
-            const loading = document.getElementById('loading-message');
-            if (loading) loading.remove();
-        }
-
         function renderRoutineView(routineData) {
             let totalCost = 0;
             let stepsHTML = '';
@@ -1076,7 +2282,7 @@ Always respond with JSON:
                                 <!-- Price & CTA -->
                                 <div class="flex flex-col items-end justify-between">
                                     <span class="font-bold text-lg">$${product.price}</span>
-                                    <button class="bg-black text-white text-xs font-bold py-2 px-4 rounded-full hover:bg-gray-800 transition-colors">
+                                    <button onclick="handleAddClick(this, '${product.id}')" class="bg-black text-white text-xs font-bold py-2 px-4 rounded-full hover:bg-gray-800 transition-colors">
                                         ADD
                                     </button>
                                 </div>
@@ -1085,6 +2291,9 @@ Always respond with JSON:
                     </div>
                 `;
             });
+
+            // Collect all product IDs for "Add All" functionality
+            const allProductIds = routineData.steps.map(s => s.productId).filter(id => getProductById(id));
 
             routineView.innerHTML = `
                 <div class="mb-8 text-center">
@@ -1109,13 +2318,38 @@ Always respond with JSON:
                         </div>
                     </div>
                     <p class="text-sm text-gray-300 mb-4">${routineData.summary}</p>
-                    <button class="w-full bg-white text-black font-bold py-3 rounded-full hover:bg-gray-100 transition-colors">
+                    <button onclick="addAllToCart(['${allProductIds.join("','")}'])" class="w-full bg-white text-black font-bold py-3 rounded-full hover:bg-gray-100 transition-colors">
                         ADD ALL TO BAG
                     </button>
                 </div>
             `;
 
             showView('routine');
+        }
+
+        // Handle add button click with animation
+        function handleAddClick(button, productId) {
+            addToCart(productId);
+            button.classList.add('add-btn-success');
+            button.textContent = '✓ ADDED';
+            setTimeout(() => {
+                button.classList.remove('add-btn-success');
+                button.textContent = 'ADD';
+            }, 1500);
+        }
+
+        // Add all products to cart
+        function addAllToCart(productIds) {
+            productIds.forEach(id => {
+                if (id && getProductById(id)) {
+                    const existingItem = cartItems.find(item => item.productId === id);
+                    if (!existingItem) {
+                        cartItems.push({ productId: id, quantity: 1 });
+                    }
+                }
+            });
+            updateCartUI();
+            showToast(`${productIds.length} products`);
         }
 
         function renderComparisonView(comparisonData) {
@@ -1183,7 +2417,7 @@ Always respond with JSON:
                         </div>
                         
                         <!-- CTA -->
-                        <button class="w-full mt-4 bg-black text-white font-bold py-3 rounded-full hover:bg-gray-800 transition-colors">
+                        <button onclick="handleAddClick(this, '${product.id}')" class="w-full mt-4 bg-black text-white font-bold py-3 rounded-full hover:bg-gray-800 transition-colors">
                             ADD ${product.name.toUpperCase()} TO BAG - $${product.price}
                         </button>
                     </div>
@@ -1264,8 +2498,8 @@ Always respond with JSON:
 
                     <div class="mt-auto">
                         <div class="flex items-center justify-between gap-2 mb-2">
-                            <button class="bg-black text-white text-xs font-bold py-2 px-4 rounded-full flex-1 hover:bg-gray-800 transition-colors">
-                            ${p.cta}
+                            <button onclick="handleAddClick(this, '${p.id}')" class="bg-black text-white text-xs font-bold py-2 px-4 rounded-full flex-1 hover:bg-gray-800 transition-colors">
+                            ${p.cta === 'SELECT SHADE' ? 'ADD TO BAG' : p.cta}
                             </button>
                             <span class="font-bold text-sm">$${p.price}</span>
                         </div>
@@ -1287,93 +2521,77 @@ Always respond with JSON:
             if (isLoading) return;
             isLoading = true;
 
-            // Show loading state
-            const loadingMsg = addLoadingMessage();
+            // Show initial progress
+            showProgressMessage('general');
 
             try {
                 // Detect intent
                 const intent = await detectIntent(query);
-                removeLoadingMessage();
+                removeProgressMessage();
 
                 if (intent.type === 'routine') {
-                    // Generate routine
-                    const loadingMsg2 = addLoadingMessage();
+                    // Show routine-specific progress
+                    showProgressMessage('routine');
                     const routineData = await generateRoutine(query);
-                    removeLoadingMessage();
+                    removeProgressMessage();
 
-                    // Add AI response
-                    addMessage('ai', `
-                        <div class="flex gap-2 mb-2">
-                            <div class="w-8 h-8 rounded-full bg-black flex items-center justify-center p-1.5">
-                                <img src="logo-elf.svg" alt="elf" class="w-full h-full object-contain" />
-                            </div>
-                        </div>
-                        <div class="space-y-2">
-                            <p class="font-medium">I've created a personalized routine just for you! 🌟</p>
-                            <p class="text-gray-600">Check out the ${routineData.steps.length} products I've selected on the right. Each step includes specific instructions for the best results.</p>
-                        </div>
-                    `, true);
+                    // Add AI response with typing animation
+                    const responseText = `I've created a personalized routine just for you! Check out the ${routineData.steps.length} products I've selected. Each step includes specific instructions for the best results.`;
+                    const responseHTML = `
+                        <p class="font-medium">I've created a personalized routine just for you! 🌟</p>
+                        <p class="text-gray-600">Check out the ${routineData.steps.length} products I've selected. Each step includes specific instructions for the best results.</p>
+                    `;
+                    await addTypingMessage(responseHTML, responseText);
 
                     renderRoutineView(routineData);
 
                 } else if (intent.type === 'comparison') {
-                    // Generate comparison
-                    const loadingMsg2 = addLoadingMessage();
+                    // Show comparison-specific progress
+                    showProgressMessage('comparison');
                     const comparisonData = await generateComparison(query);
-                    removeLoadingMessage();
+                    removeProgressMessage();
 
-                    // Add AI response
-                    addMessage('ai', `
-                        <div class="flex gap-2 mb-2">
-                            <div class="w-8 h-8 rounded-full bg-black flex items-center justify-center p-1.5">
-                                <img src="logo-elf.svg" alt="elf" class="w-full h-full object-contain" />
-                            </div>
-                        </div>
-                        <div class="space-y-2">
-                            <p class="font-medium">Great news! I found ${comparisonData.matches.length} e.l.f. alternative${comparisonData.matches.length > 1 ? 's' : ''} for you! 💰</p>
-                            <p class="text-gray-600">You could save up to <span class="font-bold text-green-600">$${comparisonData.matches[0]?.savings || 0}</span> with our dupe. Check out the comparison on the right!</p>
-                        </div>
-                    `, true);
+                    // Add AI response with typing animation
+                    const savings = comparisonData.matches[0]?.savings || 0;
+                    const responseText = `Great news! I found ${comparisonData.matches.length} e.l.f. alternative${comparisonData.matches.length > 1 ? 's' : ''} for you! You could save up to $${savings} with our dupe. Check out the comparison!`;
+                    const responseHTML = `
+                        <p class="font-medium">Great news! I found ${comparisonData.matches.length} e.l.f. alternative${comparisonData.matches.length > 1 ? 's' : ''} for you! 💰</p>
+                        <p class="text-gray-600">You could save up to <span class="font-bold text-green-600">$${savings}</span> with our dupe. Check out the comparison!</p>
+                    `;
+                    await addTypingMessage(responseHTML, responseText);
 
                     renderComparisonView(comparisonData);
 
                 } else {
                     // General query - show product grid
-                    addMessage('ai', `
-                        <div class="flex gap-2 mb-2">
-                            <div class="w-8 h-8 rounded-full bg-black flex items-center justify-center p-1.5">
-                                <img src="logo-elf.svg" alt="elf" class="w-full h-full object-contain" />
-                            </div>
-                        </div>
-                        <div class="space-y-2">
-                            <p class="font-medium">Here are some products you might love! ✨</p>
-                            <p class="text-gray-600">Browse our collection on the right, or try asking me for:</p>
-                            <ul class="text-sm text-gray-500 list-disc list-inside">
-                                <li>A personalized skincare routine</li>
-                                <li>An e.l.f. dupe for a high-end product</li>
-                            </ul>
-                        </div>
-                    `, true);
+                    const responseText = `Here are some products you might love! Browse our collection, or try asking me for a personalized skincare routine or an e.l.f. dupe for a high-end product.`;
+                    const responseHTML = `
+                        <p class="font-medium">Here are some products you might love! ✨</p>
+                        <p class="text-gray-600">Browse our collection, or try asking me for:</p>
+                        <ul class="text-sm text-gray-500 list-disc list-inside mt-2">
+                            <li>A personalized skincare routine</li>
+                            <li>An e.l.f. dupe for a high-end product</li>
+                        </ul>
+                    `;
+                    await addTypingMessage(responseHTML, responseText);
 
                     renderProducts(ALL_PRODUCTS);
                 }
 
             } catch (error) {
-                removeLoadingMessage();
+                removeProgressMessage();
                 console.error('Error processing query:', error);
                 
-                // Show error message with fallback
-                addMessage('ai', `
-                    <div class="flex gap-2 mb-2">
-                        <div class="w-8 h-8 rounded-full bg-black flex items-center justify-center p-1.5">
-                            <img src="logo-elf.svg" alt="elf" class="w-full h-full object-contain" />
-                        </div>
-                    </div>
-                    <div class="space-y-2">
-                        <p class="font-medium">Oops! ${error.message.includes('API key') ? 'Please set your OpenAI API key in the code to enable AI features.' : 'Something went wrong.'}</p>
-                        <p class="text-gray-600">In the meantime, check out our best-selling products! 👉</p>
-                    </div>
-                `, true);
+                // Show error message with typing
+                const errorMsg = error.message.includes('API key') 
+                    ? 'Please set your OpenAI API key to enable AI features.' 
+                    : 'Something went wrong.';
+                const responseText = `Oops! ${errorMsg} In the meantime, check out our best-selling products!`;
+                const responseHTML = `
+                    <p class="font-medium">Oops! ${errorMsg}</p>
+                    <p class="text-gray-600">In the meantime, check out our best-selling products! 👉</p>
+                `;
+                await addTypingMessage(responseHTML, responseText);
 
                 renderProducts(ALL_PRODUCTS);
             }
